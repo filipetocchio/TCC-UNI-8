@@ -1,0 +1,21 @@
+# Arquivos de log e dependências do Node.js
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Arquivos de ambiente - NUNCA ENVIE ISSO!
+.env
+.env.*
+
+# Arquivos de build do front-end (Vite)
+dist/
+dist-ssr/
+.output/
+
+# Arquivos de banco de dados do Prisma (SQLite)
+*.db
+*.db-journal
+
+# Arquivos do sistema operacional
+.DS_Store
+Thumbs.db

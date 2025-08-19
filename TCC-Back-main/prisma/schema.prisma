@@ -1,0 +1,168 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            Int       @id @default(autoincrement())
+  email         String    @unique
+  password      String
+  refreshToken  String?   @unique
+  nomeCompleto  String
+  telefone      String?
+  cpf           String    @unique
+  dataCadastro  DateTime  @default(now())
+  propriedades  UsuariosPropriedades[]
+  userPhoto     UserPhoto?
+
+  
+// log
+  openedAt   DateTime  @default(now())
+  closedAt   DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  excludedAt DateTime?
+
+}
+
+/// Foto de perfil do usuário
+model UserPhoto {
+  id         Int      @id @default(autoincrement())
+  userId     Int      @unique
+  filename   String
+  url        String
+  uploadedAt DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id])
+}
+
+
+
+model Propriedades {
+  id                      Int      @id @default(autoincrement())
+  nomePropriedade         String
+  enderecoCep             String?
+  enderecoCidade          String?
+  enderecoBairro          String?
+  enderecoLogradouro      String?
+  enderecoNumero          String?
+  enderecoComplemento     String?
+  enderecoPontoReferencia String?
+  tipo                    String   // Casa, Apartamento, Chacara, Lote, Outros
+  valorEstimado           Float?
+  documento               String?
+  dataCadastro            DateTime @default(now())
+  usuarios                UsuariosPropriedades[]
+  fotos                   FotosPropriedade[]
+  documentos              DocumentosPropriedade[]
+  inventario              ItemInventario[] // <--- ADICIONE ESTA LINHA AQUI
+
+  // log
+  openedAt   DateTime  @default(now())
+  closedAt   DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  excludedAt DateTime?
+}
+
+model UsuariosPropriedades {
+  id            Int       @id @default(autoincrement())
+  idUsuario     Int
+  idPropriedade Int
+  permissao     String    // proprietario_master, proprietario_comum
+  dataVinculo   DateTime  @default(now())
+  usuario       User      @relation(fields: [idUsuario], references: [id])
+  propriedade   Propriedades @relation(fields: [idPropriedade], references: [id])
+
+  @@unique([idUsuario, idPropriedade])
+
+
+// log
+  openedAt   DateTime  @default(now())
+  closedAt   DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  excludedAt DateTime?
+
+}
+
+model FotosPropriedade {
+  id            Int       @id @default(autoincrement())
+  idPropriedade Int
+  documento     String
+  dataUpload    DateTime  @default(now())
+  propriedade   Propriedades @relation(fields: [idPropriedade], references: [id])
+
+// log
+  openedAt   DateTime  @default(now())
+  closedAt   DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  excludedAt DateTime?
+
+}
+
+model DocumentosPropriedade {
+  id            Int       @id @default(autoincrement())
+  idPropriedade Int
+  tipoDocumento String    // IPTU, Matricula, Conta_de_Luz, Outros
+  documento     String
+  dataUpload    DateTime  @default(now())
+  propriedade   Propriedades @relation(fields: [idPropriedade], references: [id])
+
+// log
+  openedAt   DateTime  @default(now())
+  closedAt   DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  excludedAt DateTime?
+}
+
+
+/// Enum para o estado de conservação dos itens do inventário
+enum EstadoConservacao {
+  NOVO
+  BOM
+  DESGASTADO
+  DANIFICADO
+}
+
+/// Itens do inventário de uma propriedade
+model ItemInventario {
+  id                 Int      @id @default(autoincrement())
+  idPropriedade      Int
+  nome               String
+  quantidade         Int      @default(1)
+  estadoConservacao  EstadoConservacao @default(BOM)
+  categoria          String?
+  dataAquisicao      DateTime?
+  descricao          String? // <-- ADICIONE ESTA LINHA
+  valorEstimado      Float?
+  codigoBarras       String?  @unique
+
+  // ... relacionamentos e logs
+  propriedade        Propriedades @relation(fields: [idPropriedade], references: [id])
+  fotos              FotoInventario[]
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  excludedAt         DateTime?
+}
+
+/// Fotos de um item específico do inventário
+model FotoInventario {
+  id               Int      @id @default(autoincrement())
+  idItemInventario Int
+  filename         String   // Nome do arquivo salvo no disco
+  url              String   // Caminho para acessar o arquivo via API
+
+  // Relacionamento com o item do inventário
+  itemInventario   ItemInventario @relation(fields: [idItemInventario], references: [id])
+
+  // log
+  uploadedAt       DateTime @default(now())
+  excludedAt       DateTime?
+}

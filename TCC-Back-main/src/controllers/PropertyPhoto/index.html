@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.min.js"></script>
+</head>
+<body>
+<script>
+<!-- JS code here -->
+const formData = new FormData();
+formData.append('foto', file); // file is the selected image from input
+formData.append('idPropriedade', 1);
+
+axios.post('http://localhost:8001/api/v1/propertyPhoto/upload', formData, {
+  headers: {
+    'Content-Type': 'multipart/form-data',
+    Authorization: `Bearer ${token}`,
+  },
+});
+</script>
+</body>
+</html>
