@@ -24,7 +24,7 @@ Para começar a usar a API localmente, siga este guia:
 
 3. **Configure o arquivo `.env` na raiz do projeto** 
 
-
+```bash
 # Porta do servidor backend
 PORT=8001
 
@@ -59,7 +59,7 @@ LOGS_DIR="./SRC/logs"
 # Configurações adicionais (opcional, para futuro uso)
 # Exemplo: tempo de expiração do token (em segundos)
 # ACCESS_TOKEN_EXPIRY=3600
-
+```
 
 4. **Execute as migrações do banco**:
    ```bash
