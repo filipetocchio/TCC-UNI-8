@@ -15,10 +15,11 @@ model User {
   nomeCompleto  String
   telefone      String?
   cpf           String    @unique
-  dataCadastro  DateTime  @default(now())
+  dataCadastro  DateTime @default(now())
   propriedades  UsuariosPropriedades[]
   userPhoto     UserPhoto?
-
+  dataConsentimento DateTime?
+  versaoTermos      String?
   
 // log
   openedAt   DateTime  @default(now())
@@ -166,3 +167,4 @@ model FotoInventario {
   uploadedAt       DateTime @default(now())
   excludedAt       DateTime?
 }
+
