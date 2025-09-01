@@ -7,6 +7,12 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum StatusConvite {
+  PENDENTE
+  ACEITO
+  EXPIRADO
+}
+
 model User {
   id            Int       @id @default(autoincrement())
   email         String    @unique
@@ -21,13 +27,14 @@ model User {
   dataConsentimento DateTime?
   versaoTermos      String?
   
+  
 // log
   openedAt   DateTime  @default(now())
   closedAt   DateTime?
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
   excludedAt DateTime?
-
+  convitesEnviados   Convite[] @relation("ConvidadoPor") 
 }
 
 /// Foto de perfil do usuário
@@ -60,8 +67,8 @@ model Propriedades {
   usuarios                UsuariosPropriedades[]
   fotos                   FotosPropriedade[]
   documentos              DocumentosPropriedade[]
-  inventario              ItemInventario[] // <--- ADICIONE ESTA LINHA AQUI
-
+  inventario              ItemInventario[] 
+  convites                Convite[]
   // log
   openedAt   DateTime  @default(now())
   closedAt   DateTime?
@@ -168,3 +175,21 @@ model FotoInventario {
   excludedAt       DateTime?
 }
 
+model Convite {
+  id              Int           @id @default(autoincrement())
+  token           String        @unique // Token único e seguro (ex: UUID)
+  emailConvidado  String        // Email para quem o convite foi enviado
+  idPropriedade   Int
+  idConvidadoPor  Int           // ID do usuário que enviou o convite
+  permissao       String        // Permissão a ser concedida (ex: "proprietario_comum")
+  dataExpiracao   DateTime      // Data em que o convite se torna inválido
+  status          StatusConvite @default(PENDENTE)
+  aceitoEm        DateTime?     // Data em que foi aceito
+
+  // Relacionamentos
+  propriedade     Propriedades @relation(fields: [idPropriedade], references: [id])
+  convidadoPor    User         @relation("ConvidadoPor", fields: [idConvidadoPor], references: [id])
+
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+}

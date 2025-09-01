@@ -8,6 +8,7 @@ import { propertyDocuments } from './propertyDocuments.route';
 import { propertyPhoto } from './propertyPhoto.route';
 import { inventory } from './inventory.route';
 import { inventoryPhoto } from './inventoryPhoto.route';
+import { invite } from './invite.route';
 
 export const apiV1Router = Router();
 
@@ -19,3 +20,4 @@ apiV1Router.use("/propertyDocuments", propertyDocuments);
 apiV1Router.use("/propertyPhoto", propertyPhoto);
 apiV1Router.use("/inventory", inventory);
 apiV1Router.use("/inventoryPhoto", inventoryPhoto);
+apiV1Router.use("/invite", invite);
