@@ -8,7 +8,7 @@ import { createInvite } from '../controllers/Invite/create.Invite.controller';
 import { verifyInvite } from '../controllers/Invite/verify.Invite.controller';
 import { acceptInvite } from '../controllers/Invite/accept.Invite.controller';
 import { protect } from '../middleware/authMiddleware'; // Middleware para proteger rotas
-
+import { getPendingByProperty } from '../controllers/Invite/getPendingByProperty.Invite.controller';
 // Criação do roteador para os convites
 export const invite = express.Router();
 
@@ -32,3 +32,6 @@ invite.get('/verify/:token', verifyInvite);
  * @access  Privado (requer autenticação)
  */
 invite.post('/accept/:token', protect, acceptInvite);
+
+
+invite.get('/property/:propertyId/pending', protect, getPendingByProperty);
