@@ -21,7 +21,7 @@ const testUser = {
   email: `test-user-${Date.now()}@qota.com`, // Email único para cada execução de teste
   password: 'PasswordForTesting123!',
   nomeCompleto: 'Usuário de Teste Principal',
-  cpf: Math.random().toString().slice(2, 13), // CPF aleatório para evitar duplicatas
+  cpf: Math.random().toString().slice(2, 13), // CPF aleatório para evitar duplicata
   termosAceitos: true,
 };
 
