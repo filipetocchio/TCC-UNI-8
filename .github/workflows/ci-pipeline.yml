@@ -36,8 +36,7 @@ jobs:
 
       - name: Run Automated Tests
         run: npm test
-        # Adiciona as variáveis de ambiente necessárias para o teste a partir dos Segredos do GitHub.
-        # Isso garante que a aplicação possa se conectar ao banco e usar os segredos de JWT.
+  
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL_TEST }}
           ACCESS_TOKEN_SECRET: ${{ secrets.ACCESS_TOKEN_SECRET_TEST }}
