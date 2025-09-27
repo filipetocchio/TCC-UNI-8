@@ -2,6 +2,8 @@
  * @file authMiddleware.ts
  * @description Middleware para proteger rotas, verificando a validade de tokens JWT.
  */
+// Todos direitos autorais reservados pelo QOTA.
+
 import jwt from 'jsonwebtoken';
 import { Request, Response, NextFunction } from 'express';
 

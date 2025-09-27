@@ -1,3 +1,6 @@
+// Todos direitos autorais reservados pelo QOTA.
+
+
 import express from "express";
 import { registerAuth } from "../controllers/Auth/register.controller";
 import { loginAuth } from "../controllers/Auth/login.Auth.controller";

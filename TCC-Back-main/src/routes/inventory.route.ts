@@ -1,4 +1,5 @@
 // D:\Qota - TCC\TCC-Back_End\TCC-Back\src\routes\inventory.route.ts
+// Todos direitos autorais reservados pelo QOTA.
 
 import express from "express";
 import { createInventoryItem } from "../controllers/Inventory/create.Inventory.controller";

@@ -1,3 +1,6 @@
+// Todos direitos autorais reservados pelo QOTA.
+
+
 export const ROLES_LIST = {
   Admin: 1000,
   Editor: 100,

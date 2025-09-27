@@ -3,9 +3,10 @@
  * @description Middleware para controle de acesso baseado em papéis (Role-Based Access Control - RBAC).
  * Permite que rotas sejam protegidas, exigindo que o usuário tenha um dos papéis permitidos.
  */
+// Todos direitos autorais reservados pelo QOTA.
+
 import { Request, Response, NextFunction } from "express";
-// Importar sua lista de papéis (roles) de um local centralizado é uma boa prática.
-// Ex: import { ROLES_LIST } from "../config/rolesList";
+
 
 /**
  * @function verifyRoles

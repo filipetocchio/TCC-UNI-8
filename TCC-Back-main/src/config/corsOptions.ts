@@ -1,3 +1,6 @@
+// Todos direitos autorais reservados pelo QOTA.
+
+
 import { CorsRequest } from "cors";
 import { allowedOrigins } from "./allowedOrigins";
 import { logEvents } from "../middleware/logEvents";

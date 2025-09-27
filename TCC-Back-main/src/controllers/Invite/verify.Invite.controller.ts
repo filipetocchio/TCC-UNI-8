@@ -1,4 +1,6 @@
 // D:\Qota-TCC\TCC-Back-main\src\controllers\Invite\verify.Invite.controller.ts
+// Todos direitos autorais reservados pelo QOTA.
+
 import { prisma } from '../../utils/prisma';
 import { Request, Response } from 'express';
 

@@ -1,4 +1,5 @@
 // D:\Qota - TCC\TCC-Back_End\TCC-Back\src\controllers\Inventory\getByProperty.Inventory.controller.ts
+// Todos direitos autorais reservados pelo QOTA.
 
 import { prisma } from '../../utils/prisma';
 import { Request, Response } from 'express';
@@ -21,7 +22,7 @@ export const getInventoryByProperty = async (req: Request, res: Response) => {
       orderBy: {
         nome: 'asc',
       },
-      // ADIÇÃO IMPORTANTE: Inclui as fotos relacionadas a cada item.
+      
       include: {
         fotos: true, // Isso trará um array 'fotos' para cada item do inventário
       },

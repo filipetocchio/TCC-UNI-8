@@ -2,6 +2,8 @@
  * @file accept.Invite.controller.ts
  * @description Controller para o processo de aceitação de um convite por um usuário autenticado.
  */
+// Todos direitos autorais reservados pelo QOTA.
+
 import { prisma } from '../../utils/prisma';
 import { Request, Response } from 'express';
 import { Prisma } from '@prisma/client';

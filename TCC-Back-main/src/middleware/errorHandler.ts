@@ -1,3 +1,6 @@
+// Todos direitos autorais reservados pelo QOTA.
+
+
 import { Request, Response, NextFunction } from "express";
 import { logEvents } from "./logEvents";
 

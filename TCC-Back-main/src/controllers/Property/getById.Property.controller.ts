@@ -2,6 +2,8 @@
  * @file getById.Property.controller.ts
  * @description Controller para buscar os detalhes completos de uma propriedade específica.
  */
+// Todos direitos autorais reservados pelo QOTA.
+
 import { prisma } from '../../utils/prisma';
 import { Request, Response } from "express";
 import { z } from "zod";

@@ -3,6 +3,9 @@
  * @description Controller para a atualização da permissão de um único vínculo
  * entre um usuário e uma propriedade.
  */
+// Todos direitos autorais reservados pelo QOTA.
+
+
 import { prisma } from '../../utils/prisma';
 import { Request, Response } from 'express';
 import { z } from 'zod';

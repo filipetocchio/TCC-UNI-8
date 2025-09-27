@@ -1,3 +1,5 @@
+// Todos direitos autorais reservados pelo QOTA.
+
 // D:\Qota - TCC\TCC-Back_End\TCC-Back\src\controllers\Inventory\deleteById.Inventory.controller.ts
 
 import { prisma } from '../../utils/prisma';

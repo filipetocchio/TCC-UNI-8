@@ -1,3 +1,6 @@
+// Todos direitos autorais reservados pelo QOTA.
+
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -148,7 +151,7 @@ model ItemInventario {
   estadoConservacao  EstadoConservacao @default(BOM)
   categoria          String?
   dataAquisicao      DateTime?
-  descricao          String? // <-- ADICIONE ESTA LINHA
+  descricao          String? 
   valorEstimado      Float?
   codigoBarras       String?  @unique
 

@@ -1,4 +1,5 @@
 // D:\Qota - TCC\TCC-Back_End\TCC-Back\src\controllers\Inventory\update.Inventory.controller.ts
+// Todos direitos autorais reservados pelo QOTA.
 
 import { prisma } from '../../utils/prisma';
 import { Request, Response } from 'express';

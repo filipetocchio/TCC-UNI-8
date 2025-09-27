@@ -3,6 +3,9 @@
  * @description Controller responsável pela criação de convites para adicionar
  * novos usuários a uma propriedade.
  */
+
+// Todos direitos autorais reservados pelo QOTA.
+
 import { prisma } from '../../utils/prisma';
 import { Request, Response } from 'express';
 import { z } from 'zod';

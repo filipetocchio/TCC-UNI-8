@@ -1,3 +1,5 @@
+// Todos direitos autorais reservados pelo QOTA.
+
 /**
  * Lista de origens permitidas para CORS.
  * Configurada via ALLOWED_ORIGINS no .env ou usa valores padrão baseados em PORT e FRONTEND_URL.

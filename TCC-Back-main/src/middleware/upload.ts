@@ -1,3 +1,6 @@
+// Todos direitos autorais reservados pelo QOTA.
+
+
 /**
  * @file upload.ts
  * @description Centraliza as configurações do Multer para o tratamento de uploads de arquivos.

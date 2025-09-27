@@ -1,3 +1,6 @@
+// Todos direitos autorais reservados pelo QOTA.
+
+
 import { prisma } from '../../utils/prisma';
 import { Request, Response } from "express";
 import jwt from "jsonwebtoken";
@@ -9,7 +12,7 @@ import { z } from "zod";
  * @description Define a versão atual dos termos legais.
  * Armazenar isso no banco de dados cria uma trilha de auditoria,
  * permitindo saber exatamente qual versão dos termos o usuário aceitou.
- * Lembre-se de atualizar esta data/versão sempre que seus termos mudarem.
+ * Atualizar esta data/versão sempre que seus termos mudarem.
  */
 const TERMOS_VERSAO_ATUAL = "1.0 - 2025-08-25";
 
@@ -53,7 +56,7 @@ const registerAuth = async (req: Request, res: Response) => {
         nomeCompleto,
         cpf,
         telefone,
-        refreshToken: "", // Será atualizado em seguida
+        refreshToken: "", 
         
         // --- ARMAZENAMENTO DO CONSENTIMENTO LGPD ---
         // Registra a data/hora exatas do consentimento e a versão dos termos.

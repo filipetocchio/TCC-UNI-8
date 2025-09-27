@@ -19,7 +19,7 @@ jest.mock('../utils/prisma', () => ({
   prisma: mockPrisma,
 }));
 
-// Agora, importamos o controller APÓS o mock ter sido configurado.
+// Aqui, o controller APÓS o mock ter sido configurado.
 import { createInvite } from '../controllers/Invite/create.Invite.controller';
 
 describe('Unit Test: createInvite Controller', () => {

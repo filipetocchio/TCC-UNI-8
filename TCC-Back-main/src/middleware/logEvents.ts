@@ -1,3 +1,6 @@
+// Todos direitos autorais reservados pelo QOTA.
+
+
 import { format } from "date-fns";
 import { Request, Response, NextFunction } from "express";
 import { v4 as uuid } from "uuid";

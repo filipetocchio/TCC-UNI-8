@@ -3,6 +3,8 @@
  * @description Controller responsável pelo upload e persistência de fotos
  * associadas a um item de inventário específico.
  */
+// Todos direitos autorais reservados pelo QOTA.
+
 import { prisma } from '../../utils/prisma';
 import { Request, Response } from 'express';
 import { z } from 'zod';
@@ -40,7 +42,7 @@ export const uploadInventoryPhoto = async (req: Request, res: Response) => {
       return res.status(404).json({ success: false, message: 'Item de inventário não encontrado.' });
     }
 
-    // NOVA VERIFICAÇÃO: Conta quantas fotos o item já possui.
+    // Conta quantas fotos o item já possui.
     const photoCount = await prisma.fotoInventario.count({
       where: { idItemInventario: idItemInventario, excludedAt: null },
     });

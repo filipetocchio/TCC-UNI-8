@@ -5,6 +5,7 @@
  * dos dados de entrada, a verificação de regras de negócio e a
  * persistência dos dados no banco.
  */
+// Todos direitos autorais reservados pelo QOTA.
 
 import { prisma } from '../../utils/prisma';
 import { Request, Response } from 'express';

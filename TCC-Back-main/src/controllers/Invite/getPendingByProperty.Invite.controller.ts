@@ -2,6 +2,9 @@
  * @file getPendingByProperty.Invite.controller.ts
  * @description Controller para listar todos os convites com status PENDENTE para uma propriedade específica.
  */
+
+// Todos direitos autorais reservados pelo QOTA.
+
 import { prisma } from '../../utils/prisma';
 import { Request, Response } from 'express';
 import { z } from 'zod';

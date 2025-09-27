@@ -1,4 +1,6 @@
 // D:\Qota - TCC\TCC-Back_End\TCC-Back\src\controllers\InventoryPhoto\deleteById.InventoryPhoto.controller.ts
+// Todos direitos autorais reservados pelo QOTA.
+
 import { prisma } from '../../utils/prisma';
 import { Request, Response } from 'express';
 import { z } from 'zod';

@@ -1,4 +1,5 @@
-// Se não planeja usar cookies/sessões, delete o arquivo.
+// Todos direitos autorais reservados pelo QOTA.
+
 
 import { Request, Response, NextFunction } from "express";
 import { allowedOrigins } from "../config/allowedOrigins";

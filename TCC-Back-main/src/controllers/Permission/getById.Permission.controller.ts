@@ -3,6 +3,9 @@
  * @description Controller para listar os vínculos de uma propriedade específica,
  * com base em seu ID, com suporte para paginação e busca de usuários.
  */
+// Todos direitos autorais reservados pelo QOTA.
+
+
 import { prisma } from '../../utils/prisma';
 import { Request, Response } from 'express';
 import { z } from 'zod';

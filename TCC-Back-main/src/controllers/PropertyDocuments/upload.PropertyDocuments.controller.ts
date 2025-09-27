@@ -2,6 +2,9 @@
  * @file upload.PropertyDocuments.controller.ts
  * @description Controller para o upload e persistência de documentos de propriedades.
  */
+
+// Todos direitos autorais reservados pelo QOTA.
+
 import { prisma } from '../../utils/prisma';
 import { Request, Response } from 'express';
 import { z } from 'zod';
