@@ -3,6 +3,8 @@
  * @description Suíte de testes de integração para os endpoints de autenticação (/api/v1/auth).
  * Garante que os fluxos de registro e login estejam funcionando conforme o esperado.
  */
+// Todos direitos autorais reservados pelo QOTA.
+
 import request from 'supertest';
 import express from 'express';
 import { PrismaClient } from '@prisma/client';

@@ -3,6 +3,8 @@
  * @description Define as rotas da API para o gerenciamento de permissões e vínculos
  * entre usuários e propriedades.
  */
+// Todos direitos autorais reservados pelo QOTA.
+
 import express from 'express';
 import { protect } from '../middleware/authMiddleware';
 
@@ -11,7 +13,7 @@ import { getUsuariosPropriedades } from '../controllers/Permission/get.Permissio
 // O nome exportado era 'getByIDsuariosPropriedades', então corrigimos a importação.
 import { getByIDsuariosPropriedades as getUsersByPropertyId } from '../controllers/Permission/getById.Permission.controller';
 import { updatePermission } from '../controllers/Permission/update.Permission.controller';
-// Adicione aqui outros controllers de permissão que você venha a utilizar (ex: criar ou remover vínculo).
+
 
 export const permission = express.Router();
 

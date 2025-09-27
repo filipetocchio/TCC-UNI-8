@@ -1,3 +1,5 @@
+// Todos direitos autorais reservados pelo QOTA.
+
 import express from 'express';
 import { apiV1Router } from './routes/routes';
 import path from 'path';

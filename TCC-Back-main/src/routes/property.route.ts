@@ -1,3 +1,6 @@
+// Todos direitos autorais reservados pelo QOTA.
+
+
 import express from "express";
 import { createProperty } from "../controllers/Property/create.Property.controller";
 import { getProperty } from "../controllers/Property/get.Property.controller";

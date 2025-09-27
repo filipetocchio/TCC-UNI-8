@@ -4,6 +4,7 @@
  * propriedades customizadas ao objeto Request, garantindo a segurança de tipos
  * em toda a aplicação.
  */
+// Todos direitos autorais reservados pelo QOTA.
 
 // Define a estrutura do payload que esperamos do nosso token JWT
 interface UserPayload {

@@ -1,3 +1,6 @@
+// Todos direitos autorais reservados pelo QOTA.
+
+
 import { Router } from 'express';
 
 import { auth } from './auth.route';

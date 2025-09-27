@@ -3,6 +3,9 @@
  * @description Define as rotas da API para o gerenciamento de documentos de propriedades,
  * garantindo que todas as rotas sejam protegidas e utilizem os middlewares corretos.
  */
+
+// Todos direitos autorais reservados pelo QOTA.
+
 import express from 'express';
 import { protect } from '../middleware/authMiddleware';
 import { uploadDocument } from '../middleware/upload';

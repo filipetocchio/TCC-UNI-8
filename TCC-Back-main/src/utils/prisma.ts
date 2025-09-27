@@ -3,6 +3,7 @@
  * @description Centraliza a inicialização e exportação do cliente Prisma.
  * Inclui funções utilitárias para o tratamento de erros específicos do Prisma.
  */
+// Todos direitos autorais reservados pelo QOTA.
 
 // Importa o cliente e os tipos gerados pelo Prisma
 import { PrismaClient, Prisma } from '@prisma/client';

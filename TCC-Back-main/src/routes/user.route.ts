@@ -1,3 +1,6 @@
+// Todos direitos autorais reservados pelo QOTA.
+
+
 import express from "express";
 import { getUser } from "../controllers/User/get.User.controller";
 import { getUserById } from "../controllers/User/getById.User.controller";

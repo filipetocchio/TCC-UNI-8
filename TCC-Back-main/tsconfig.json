@@ -1,3 +1,5 @@
+// Todos direitos autorais reservados pelo QOTA.
+
 {
   "compilerOptions": {
     "target": "es2016",
@@ -15,9 +17,7 @@
   "include": [
     "src/**/*"
   ],
-  // ADICIONE ESTA CONFIGURAÇÃO ESPECÍFICA PARA O TS-NODE
-  // Ela força o ts-node a carregar todos os arquivos incluídos no projeto,
-  // garantindo que as declarações de tipo globais sejam reconhecidas.
+ 
   "ts-node": {
     "files": true
   }

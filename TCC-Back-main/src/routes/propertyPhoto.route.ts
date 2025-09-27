@@ -1,3 +1,6 @@
+// Todos direitos autorais reservados pelo QOTA.
+
+
 import express from "express";
 import { UploadPropertyPhoto } from "../controllers/PropertyPhoto/upload.PropertyPhoto.controller";
 import { getPropertyPhoto } from "../controllers/PropertyPhoto/get.PropertyPhoto.controller";

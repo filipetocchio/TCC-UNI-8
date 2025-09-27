@@ -3,6 +3,9 @@
  * @description Define as rotas da API para o sistema de convites.
  * Inclui endpoints para criação, verificação e aceitação de convites.
  */
+// Todos direitos autorais reservados pelo QOTA.
+
+
 import express from 'express';
 import { createInvite } from '../controllers/Invite/create.Invite.controller';
 import { verifyInvite } from '../controllers/Invite/verify.Invite.controller';
