@@ -12,6 +12,8 @@ import { propertyPhoto } from './propertyPhoto.route';
 import { inventory } from './inventory.route';
 import { inventoryPhoto } from './inventoryPhoto.route';
 import { invite } from './invite.route';
+import { validation } from './validation.route';
+import { financial } from './financial.route';
 
 export const apiV1Router = Router();
 
@@ -24,3 +26,5 @@ apiV1Router.use("/propertyPhoto", propertyPhoto);
 apiV1Router.use("/inventory", inventory);
 apiV1Router.use("/inventoryPhoto", inventoryPhoto);
 apiV1Router.use("/invite", invite);
+apiV1Router.use("/validation", validation);
+apiV1Router.use("/financial", financial);

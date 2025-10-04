@@ -72,6 +72,7 @@ model Propriedades {
   documentos              DocumentosPropriedade[]
   inventario              ItemInventario[] 
   convites                Convite[]
+  despesas                Despesa[]
   // log
   openedAt   DateTime  @default(now())
   closedAt   DateTime?
@@ -195,4 +196,28 @@ model Convite {
 
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
+}
+
+enum StatusPagamento {
+  PENDENTE
+  PAGO
+  ATRASADO
+}
+
+model Despesa {
+  id              Int      @id @default(autoincrement())
+  idPropriedade   Int
+  descricao       String
+  valor           Float
+  dataVencimento  DateTime
+  empresa         String?
+  categoria       String?
+  urlComprovante  String
+  status          StatusPagamento @default(PENDENTE)
+  dataCadastro    DateTime @default(now())
+  
+  propriedade     Propriedades @relation(fields: [idPropriedade], references: [id])
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
