@@ -1,19 +1,20 @@
 // Todos direitos autorais reservados pelo QOTA.
 
-
 import { prisma } from '../../utils/prisma';
 import { Request, Response } from 'express';
 import { z } from 'zod';
 
 const deleteUserByIdSchema = z.object({
+  // A validação de parâmetros de rota é feita na cadeia de validação,
+  // não no construtor do z.string().
   id: z
-    .string({ required_error: 'O parâmetro id é obrigatório.' })
-    .regex(/^\d+$/, { message: 'ID do usuário deve ser um número válido.' })
-    .transform(val => parseInt(val, 10))
-    .refine(val => val > 0, { message: 'ID do usuário inválido.' }),
+    .string() // Valida que é uma string
+    .regex(/^\d+$/, { message: 'O ID do usuário deve ser um número válido.' }) // Valida que contém apenas dígitos
+    .transform(val => parseInt(val, 10)) // Converte para número
+    .refine(val => val > 0, { message: 'O ID do usuário é inválido.' }),
 });
 
-const deleteUserById = async (req: Request, res: Response) => {
+export const deleteUserById = async (req: Request, res: Response) => {
   try {
     const { id } = deleteUserByIdSchema.parse(req.params);
 
@@ -41,7 +42,7 @@ const deleteUserById = async (req: Request, res: Response) => {
     if (error instanceof z.ZodError) {
       return res.status(400).json({
         success: false,
-        message: error.errors[0].message,
+        message: error.issues[0].message,
       });
     }
 
@@ -52,5 +53,3 @@ const deleteUserById = async (req: Request, res: Response) => {
     });
   }
 };
-
-export { deleteUserById };

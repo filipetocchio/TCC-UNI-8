@@ -1,19 +1,18 @@
 // Todos direitos autorais reservados pelo QOTA.
 
-
 import { prisma } from '../../utils/prisma';
 import { Request, Response } from 'express';
 import { z } from 'zod';
 
 const deleteUserFromPropertySchema = z.object({
   id: z
-    .string({ required_error: 'O parâmetro id é obrigatório.' })
+    .string()
     .regex(/^\d+$/, { message: 'ID do vínculo deve ser um número válido.' })
     .transform(val => parseInt(val, 10))
     .refine(val => val > 0, { message: 'ID do vínculo inválido.' }),
 });
 
-const removeUserFromPropertyPermissionById = async (req: Request, res: Response) => {
+export const removeUserFromPropertyPermissionById = async (req: Request, res: Response) => {
   try {
     const { id } = deleteUserFromPropertySchema.parse(req.params);
 
@@ -25,7 +24,6 @@ const removeUserFromPropertyPermissionById = async (req: Request, res: Response)
       return res.status(404).json({
         success: false,
         message: 'Vínculo não encontrado.',
-        error: 'Vínculo não encontrado.',
       });
     }
 
@@ -33,7 +31,6 @@ const removeUserFromPropertyPermissionById = async (req: Request, res: Response)
       return res.status(400).json({
         success: false,
         message: 'Vínculo já foi deletado.',
-        error: 'Vínculo já foi deletado.',
       });
     }
 
@@ -50,8 +47,7 @@ const removeUserFromPropertyPermissionById = async (req: Request, res: Response)
     if (error instanceof z.ZodError) {
       return res.status(400).json({
         success: false,
-        message: error.errors[0].message,
-        error: error.errors[0].message,
+        message: error.issues[0].message,
       });
     }
 
@@ -59,9 +55,6 @@ const removeUserFromPropertyPermissionById = async (req: Request, res: Response)
     return res.status(500).json({
       success: false,
       message: 'Erro interno do servidor.',
-      error: 'Ocorreu um erro ao processar a solicitação.',
     });
   }
 };
-
-export { removeUserFromPropertyPermissionById };

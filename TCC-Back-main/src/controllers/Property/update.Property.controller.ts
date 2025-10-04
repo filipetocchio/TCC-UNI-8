@@ -1,6 +1,5 @@
 // Todos direitos autorais reservados pelo QOTA.
 
-
 import { prisma } from '../../utils/prisma';
 import { Request, Response } from 'express';
 import { z } from 'zod';
@@ -20,7 +19,7 @@ const updatePropertySchema = z.object({
   propertyId: z.number().int().positive({ message: 'ID da propriedade inválido.' }),
 });
 
-const updateProperty = async (req: Request, res: Response) => {
+export const updateProperty = async (req: Request, res: Response) => {
   try {
     const {
       nomePropriedade,
@@ -47,7 +46,6 @@ const updateProperty = async (req: Request, res: Response) => {
     if (!property) {
       return res.status(404).json({
         success: false,
-        error: 'Propriedade não encontrada.',
         message: 'Propriedade não encontrada.',
       });
     }
@@ -55,7 +53,6 @@ const updateProperty = async (req: Request, res: Response) => {
     if (property.excludedAt) {
       return res.status(400).json({
         success: false,
-        error: 'Propriedade já foi deletada.',
         message: 'Propriedade já foi deletada.',
       });
     }
@@ -102,16 +99,12 @@ const updateProperty = async (req: Request, res: Response) => {
     if (error instanceof z.ZodError) {
       return res.status(400).json({
         success: false,
-        error: error.errors[0].message,
-        message: error.errors[0].message,
+        message: error.issues[0].message,
       });
     }
     return res.status(500).json({
       success: false,
-      error: 'Erro interno do servidor.',
       message: 'Erro interno do servidor.',
     });
   }
 };
-
-export { updateProperty };

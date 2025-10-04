@@ -4,7 +4,6 @@ import { prisma } from '../../utils/prisma';
 import { Request, Response } from 'express';
 import { z } from 'zod';
 
-// Schema Zod para validar o body da requisição
 const createPropertySchema = z.object({
   nomePropriedade: z.string().min(1).max(100),
   enderecoCep: z.string().optional().refine(val => !val || /^\d{8}$/.test(val), { message: 'O CEP deve ter 8 dígitos.' }),
@@ -20,9 +19,8 @@ const createPropertySchema = z.object({
   userId: z.number().int().positive(),
 });
 
-const createProperty = async (req: Request, res: Response) => {
+export const createProperty = async (req: Request, res: Response) => {
   try {
-    // 1) Validação do body
     const data = createPropertySchema.parse(req.body);
     const {
       nomePropriedade,
@@ -39,22 +37,15 @@ const createProperty = async (req: Request, res: Response) => {
       userId,
     } = data;
 
-    console.log('Iniciando criação de propriedade para usuário:', userId);
-
-    // 2) Verifica existência do usuário
     const user = await prisma.user.findUnique({ where: { id: userId } });
-    console.log('Usuário encontrado:', user);
     if (!user) {
-      return res.status(404).json({ success: false, error: 'Usuário não encontrado.' });
+      return res.status(404).json({ success: false, message: 'Usuário não encontrado.' });
     }
 
-    // 3) Verifica se usuário está ativo
-    console.log('User excludedAt:', user.excludedAt);
     if (user.excludedAt) {
-      return res.status(400).json({ success: false, error: `Usuário desativado (ID: ${userId}).` });
+      return res.status(400).json({ success: false, message: `Usuário desativado (ID: ${userId}).` });
     }
 
-    // 4) Cria propriedade e vínculo em transação
     const result = await prisma.$transaction(async (tx) => {
       const property = await tx.propriedades.create({
         data: {
@@ -71,7 +62,6 @@ const createProperty = async (req: Request, res: Response) => {
           documento,
         },
       });
-      console.log('Propriedade criada:', property);
 
       const link = await tx.usuariosPropriedades.create({
         data: {
@@ -80,12 +70,10 @@ const createProperty = async (req: Request, res: Response) => {
           permissao: 'proprietario_master',
         },
       });
-      console.log('Vínculo criado:', link);
 
       return { property, link };
     });
 
-    // 5) Retorna resposta de sucesso
     const { property } = result;
     return res.status(201).json({
       success: true,
@@ -98,12 +86,10 @@ const createProperty = async (req: Request, res: Response) => {
       },
     });
   } catch (err) {
-    console.error('Erro em createProperty:', err);
     if (err instanceof z.ZodError) {
-      return res.status(400).json({ success: false, error: err.errors[0].message });
+      return res.status(400).json({ success: false, message: err.issues[0].message });
     }
-    return res.status(500).json({ success: false, error: 'Erro interno do servidor.' });
+    console.error('Erro em createProperty:', err);
+    return res.status(500).json({ success: false, message: 'Erro interno do servidor.' });
   }
 };
-
-export { createProperty };

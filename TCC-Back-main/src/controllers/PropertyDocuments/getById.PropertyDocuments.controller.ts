@@ -4,7 +4,6 @@ import { prisma } from '../../utils/prisma';
 import { Request, Response } from 'express';
 import { z } from 'zod';
 
-// Schema para validar o ID do documento que vem pela URL
 const getDocumentByIdSchema = z.object({
   id: z.string().transform(val => parseInt(val, 10)).refine(val => val > 0, { message: 'O ID do documento é inválido.' }),
 });
@@ -32,7 +31,7 @@ export const getPropertyDocumentsById = async (req: Request, res: Response) => {
     return res.status(200).json({ success: true, data: documento });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ success: false, message: error.errors[0].message });
+      return res.status(400).json({ success: false, message: error.issues[0].message });
     }
     console.error('Erro ao buscar documento por ID:', error);
     return res.status(500).json({ success: false, message: 'Erro interno do servidor.' });

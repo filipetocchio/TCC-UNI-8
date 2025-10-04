@@ -1,4 +1,3 @@
-// D:\Qota - TCC\TCC-Back_End\TCC-Back\src\controllers\InventoryPhoto\deleteById.InventoryPhoto.controller.ts
 // Todos direitos autorais reservados pelo QOTA.
 
 import { prisma } from '../../utils/prisma';
@@ -21,7 +20,6 @@ export const deleteInventoryPhotoById = async (req: Request, res: Response) => {
       return res.status(404).json({ success: false, message: 'Foto não encontrada ou já deletada.' });
     }
 
-    // Realiza o soft delete
     await prisma.fotoInventario.update({
       where: { id },
       data: { excludedAt: new Date() },
@@ -30,7 +28,7 @@ export const deleteInventoryPhotoById = async (req: Request, res: Response) => {
     return res.status(200).json({ success: true, message: 'Foto deletada com sucesso.' });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ success: false, message: error.errors[0].message });
+      return res.status(400).json({ success: false, message: error.issues[0].message });
     }
     console.error('Erro ao deletar foto de inventário:', error);
     return res.status(500).json({ success: false, message: 'Erro interno do servidor.' });

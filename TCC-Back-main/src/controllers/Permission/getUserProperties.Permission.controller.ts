@@ -1,6 +1,5 @@
 // Todos direitos autorais reservados pelo QOTA.
 
-
 import { Request, Response } from "express";
 import { prisma } from "../../utils/prisma";
 import { z } from "zod";
@@ -29,7 +28,7 @@ const getQueryParamsSchema = z.object({
   showDeleted: z.enum(["true", "false", "only"]).optional().default("false"),
 });
 
-const getUserPropertiesPermission = async (req: Request, res: Response) => {
+export const getUserPropertiesPermission = async (req: Request, res: Response) => {
   try {
     const { id } = getPropertyUsersSchema.parse(req.params);
     const { limit, page, showDeleted } = getQueryParamsSchema.parse(req.query);
@@ -44,7 +43,7 @@ const getUserPropertiesPermission = async (req: Request, res: Response) => {
 
     const deletedFilter =
       showDeleted === "true"
-        ? {} // Todos os registros
+        ? {}
         : showDeleted === "only"
         ? { excludedAt: { not: null } }
         : { excludedAt: null };
@@ -95,11 +94,9 @@ const getUserPropertiesPermission = async (req: Request, res: Response) => {
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: error.errors });
+      return res.status(400).json({ error: error.issues });
     }
     console.error(error);
     return res.status(500).json({ error: "Erro interno no servidor" });
   }
 };
-
-export { getUserPropertiesPermission };

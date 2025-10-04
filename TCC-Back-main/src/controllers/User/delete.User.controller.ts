@@ -1,11 +1,10 @@
 // Todos direitos autorais reservados pelo QOTA.
 
-
 import { prisma } from '../../utils/prisma';
 import { Request, Response } from 'express';
 import { z } from 'zod';
 
-const deleteUser = async (req: Request, res: Response) => {
+export const deleteUser = async (req: Request, res: Response) => {
   try {
 
     const activeUsers = await prisma.user.count({
@@ -35,8 +34,7 @@ const deleteUser = async (req: Request, res: Response) => {
     if (error instanceof z.ZodError) {
       return res.status(400).json({
         success: false,
-        message: error.errors[0].message,
-        error: 'Erro de validação nos dados fornecidos.',
+        message: error.issues[0].message,
       });
     }
 
@@ -44,9 +42,6 @@ const deleteUser = async (req: Request, res: Response) => {
     return res.status(500).json({
       success: false,
       message: 'Erro interno do servidor.',
-      error: 'Ocorreu um erro ao processar a solicitação.',
     });
   }
 };
-
-export { deleteUser };

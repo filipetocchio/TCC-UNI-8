@@ -1,4 +1,3 @@
-// src/controllers/User/get.User.controller.ts
 // Todos direitos autorais reservados pelo QOTA.
 
 import { prisma } from '../../utils/prisma';
@@ -16,7 +15,7 @@ const getUserSchema = z.object({
   showDeleted: z.enum(["true", "false", "only"]).optional().default("false"),
 });
 
-const getUser = async (req: Request, res: Response) => {
+export const getUser = async (req: Request, res: Response) => {
   try {
     const { limit, page, search, showDeleted } = getUserSchema.parse(req.query);
 
@@ -44,7 +43,7 @@ const getUser = async (req: Request, res: Response) => {
           cpf: true,
           telefone: true,
           dataCadastro: true,
-          userPhoto: { select: { url: true } },  // adiciona foto
+          userPhoto: { select: { url: true } },
         },
       }),
       prisma.user.count({ where }),
@@ -64,17 +63,13 @@ const getUser = async (req: Request, res: Response) => {
     if (error instanceof z.ZodError) {
       return res.status(400).json({
         success: false,
-        error: error.errors[0].message,
-        message: error.errors[0].message,
+        message: error.issues[0].message,
       });
     }
     console.error("Erro no getUser:", error);
     return res.status(500).json({
       success: false,
-      error: "Erro interno do servidor.",
       message: error instanceof Error ? error.message : "Erro interno do servidor.",
     });
   }
 };
-
-export { getUser };

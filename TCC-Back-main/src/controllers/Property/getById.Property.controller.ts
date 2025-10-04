@@ -1,17 +1,9 @@
-/**
- * @file getById.Property.controller.ts
- * @description Controller para buscar os detalhes completos de uma propriedade específica.
- */
 // Todos direitos autorais reservados pelo QOTA.
 
 import { prisma } from '../../utils/prisma';
 import { Request, Response } from "express";
 import { z } from "zod";
 
-/**
- * @name getPropertyByIdSchema
- * @description Valida que o parâmetro 'id' da rota é um número positivo.
- */
 const getPropertyByIdSchema = z.object({
   id: z.string().transform(val => parseInt(val, 10))
     .refine(val => val > 0, { message: "O ID da propriedade deve ser um número positivo." }),
@@ -44,15 +36,14 @@ export const getPropertyById = async (req: Request, res: Response) => {
           select: { id: true, tipoDocumento: true, documento: true },
           where: { excludedAt: null }
         },
-        // Estrutura de dados completa para os membros
         usuarios: {
           where: { usuario: { excludedAt: null } },
           select: {
-            id: true, // ID do vínculo (UsuariosPropriedades)
+            id: true,
             permissao: true,
             usuario: {
               select: {
-                id: true, // ID do usuário
+                id: true,
                 nomeCompleto: true,
                 email: true,
               }
@@ -78,11 +69,10 @@ export const getPropertyById = async (req: Request, res: Response) => {
     if (error instanceof z.ZodError) {
       return res.status(400).json({
         success: false,
-        message: error.errors[0].message,
+        message: error.issues[0].message,
       });
     }
     console.error("Erro no getPropertyById:", error);
-    // Tratamento de erro seguro
     const errorMessage = error instanceof Error ? error.message : "Ocorreu um erro inesperado.";
     return res.status(500).json({
       success: false,

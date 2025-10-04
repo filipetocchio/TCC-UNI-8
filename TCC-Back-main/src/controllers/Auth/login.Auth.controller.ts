@@ -1,3 +1,5 @@
+// Todos direitos autorais reservados pelo QOTA.
+
 import { prisma } from '../../utils/prisma';
 import { Request, Response } from "express";
 import bcrypt from "bcrypt";
@@ -9,7 +11,7 @@ const loginSchema = z.object({
   password: z.string().min(6, { message: "A senha deve ter pelo menos 6 caracteres." }),
 });
 
-const loginAuth = async (req: Request, res: Response) => {
+export const loginAuth = async (req: Request, res: Response) => {
   try {
     const { email, password } = loginSchema.parse(req.body);
 
@@ -20,7 +22,6 @@ const loginAuth = async (req: Request, res: Response) => {
     if (!user) {
       return res.status(401).json({
         success: false,
-        error: "E-mail não encontrado.",
         message: "E-mail não encontrado.",
       });
     }
@@ -30,7 +31,6 @@ const loginAuth = async (req: Request, res: Response) => {
     if (!match) {
       return res.status(401).json({
         success: false,
-        error: "Senha incorreta.",
         message: "Senha incorreta.",
       });
     }
@@ -71,17 +71,13 @@ const loginAuth = async (req: Request, res: Response) => {
     if (error instanceof z.ZodError) {
       return res.status(400).json({
         success: false,
-        error: error.errors[0].message,
-        message: error.errors[0].message,
+        message: error.issues[0].message,
       });
     }
 
     return res.status(500).json({
       success: false,
-      error: "Erro interno do servidor.",
       message: "Erro interno do servidor.",
     });
   }
 };
-
-export { loginAuth };

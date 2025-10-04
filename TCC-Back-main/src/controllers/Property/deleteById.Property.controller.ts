@@ -6,13 +6,13 @@ import { z } from 'zod';
 
 const deletePropertyByIdSchema = z.object({
   id: z
-    .string({ required_error: 'O parâmetro id é obrigatório.' })
+    .string()
     .regex(/^\d+$/, { message: 'ID da propriedade deve ser um número válido.' })
     .transform(val => parseInt(val, 10))
     .refine(val => val > 0, { message: 'ID da propriedade inválido.' }),
 });
 
-const deletePropertyById = async (req: Request, res: Response) => {
+export const deletePropertyById = async (req: Request, res: Response) => {
   try {
     const { id } = deletePropertyByIdSchema.parse(req.params);
 
@@ -24,7 +24,6 @@ const deletePropertyById = async (req: Request, res: Response) => {
       return res.status(404).json({
         success: false,
         message: 'Propriedade não encontrada.',
-        error: 'Propriedade não encontrada.',
       });
     }
 
@@ -32,7 +31,6 @@ const deletePropertyById = async (req: Request, res: Response) => {
       return res.status(400).json({
         success: false,
         message: 'Propriedade já foi deletada (soft delete).',
-        error: 'Propriedade já foi deletada (soft delete).',
       });
     }
 
@@ -52,8 +50,7 @@ const deletePropertyById = async (req: Request, res: Response) => {
     if (error instanceof z.ZodError) {
       return res.status(400).json({
         success: false,
-        message: error.errors[0].message,
-        error: error.errors[0].message,
+        message: error.issues[0].message,
       });
     }
 
@@ -61,8 +58,6 @@ const deletePropertyById = async (req: Request, res: Response) => {
     return res.status(500).json({
       success: false,
       message: 'Erro interno do servidor.',
-      error: 'Ocorreu um erro ao processar a solicitação.',
     });
   }
 };
-export { deletePropertyById };

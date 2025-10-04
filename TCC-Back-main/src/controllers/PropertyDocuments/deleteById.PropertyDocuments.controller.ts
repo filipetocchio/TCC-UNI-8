@@ -1,6 +1,5 @@
 // Todos direitos autorais reservados pelo QOTA.
 
-
 import { prisma } from '../../utils/prisma';
 import { Request, Response } from 'express';
 import { z } from 'zod';
@@ -21,11 +20,11 @@ const deleteDocumentByIdSchema = z.object({
   }),
 });
 
-const deletePropertyDocumentsById = async (req: Request, res: Response) => {
+export const deletePropertyDocumentsById = async (req: Request, res: Response) => {
   try {
     const parsedParams = deleteDocumentByIdSchema.safeParse(req.params);
     if (!parsedParams.success) {
-      return res.status(400).json({ error: parsedParams.success === false ? parsedParams.error.errors : [] });
+      return res.status(400).json({ error: parsedParams.error.issues });
     }
 
     const { id } = parsedParams.data;
@@ -57,5 +56,3 @@ const deletePropertyDocumentsById = async (req: Request, res: Response) => {
     return res.status(500).json({ error: 'Erro interno do servidor' });
   }
 };
-
-export { deletePropertyDocumentsById };

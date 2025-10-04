@@ -1,39 +1,28 @@
 // Todos direitos autorais reservados pelo QOTA.
 
-
 import { prisma } from '../../utils/prisma';
 import { Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import { z } from "zod";
 
-/**
- * @constant TERMOS_VERSAO_ATUAL
- * @description Define a versão atual dos termos legais.
- * Armazenar isso no banco de dados cria uma trilha de auditoria,
- * permitindo saber exatamente qual versão dos termos o usuário aceitou.
- * Atualizar esta data/versão sempre que seus termos mudarem.
- */
 const TERMOS_VERSAO_ATUAL = "1.0 - 2025-08-25";
 
 const registerSchema = z.object({
   email: z.string().email({ message: "Formato de e-mail inválido." }),
   password: z.string().min(6, { message: "A senha deve ter pelo menos 6 caracteres." }),
-  nomeCompleto: z.string().min(1, { message: "O nome completo é obrigatório." }).max(100, { message: "O nome completo não pode exceder 100 caracteres." }),
-  cpf: z.string().length(11, { message: "O CPF deve ter exatamente 11 dígitos." }).regex(/^\d+$/, { message: "O CPF deve conter apenas dígitos." }),
+  nomeCompleto: z.string().min(1, { message: "O nome completo é obrigatório." }),
+  cpf: z.string().length(11, { message: "O CPF deve ter exatamente 11 dígitos." }),
   telefone: z.string().optional().refine(val => !val || /^\d{10,11}$/.test(val), { message: "O número de telefone deve ter 10 ou 11 dígitos." }),
   
-  // --- VALIDAÇÃO LGPD ---
-  // Exige que o campo 'termosAceitos' seja enviado no corpo da requisição
-  // e que seu valor seja estritamente 'true'.
-  termosAceitos: z.literal(true, {
-    errorMap: () => ({ message: "Você deve aceitar os Termos de Uso e a Política de Privacidade para se cadastrar." }),
+  // Validação de checkbox com 'refine'.
+  termosAceitos: z.coerce.boolean().refine(data => data === true, {
+    message: "Você deve aceitar os Termos de Uso e a Política de Privacidade para se cadastrar.",
   }),
 });
 
-const registerAuth = async (req: Request, res: Response) => {
+export const registerAuth = async (req: Request, res: Response) => {
   try {
-    // A validação do Zod agora também verifica o campo 'termosAceitos'
     const { email, password, nomeCompleto, cpf, telefone } = registerSchema.parse(req.body);
 
     const duplicate = await prisma.user.findFirst({
@@ -57,9 +46,6 @@ const registerAuth = async (req: Request, res: Response) => {
         cpf,
         telefone,
         refreshToken: "", 
-        
-        // --- ARMAZENAMENTO DO CONSENTIMENTO LGPD ---
-        // Registra a data/hora exatas do consentimento e a versão dos termos.
         dataConsentimento: new Date(),
         versaoTermos: TERMOS_VERSAO_ATUAL,
       },
@@ -102,7 +88,7 @@ const registerAuth = async (req: Request, res: Response) => {
     if (error instanceof z.ZodError) {
       return res.status(400).json({
         success: false,
-        message: error.errors[0].message,
+        message: error.issues[0].message,
       });
     }
     console.error("Erro no registro:", error);
@@ -112,5 +98,3 @@ const registerAuth = async (req: Request, res: Response) => {
     });
   }
 };
-
-export { registerAuth };

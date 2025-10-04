@@ -58,7 +58,7 @@ export const uploadInvoice = async (req: Request, res: Response) => {
         dataVencimento: dataVencimentoISO,
         empresa: ocrResponse.data.dados.empresa,
         categoria: ocrResponse.data.dados.categoria,
-        // Futuramente, aqui salvaremos o arquivo em um storage e guardaremos a URL.
+        
         // Por enquanto, salvamos o nome do arquivo como placeholder.
         urlComprovante: `/uploads/invoices/${req.file.filename}`, // Placeholder
       },

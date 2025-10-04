@@ -4,15 +4,12 @@ import { prisma } from '../../utils/prisma';
 import { Request, Response } from 'express';
 import { z } from 'zod';
 
-const deleteUserFromPropertySchema = z.object({
-  id: z
-    .string({ required_error: 'O parâmetro id é obrigatório.' })
-    .regex(/^\d+$/, { message: 'ID do vínculo deve ser um número válido.' })
-    .transform(val => parseInt(val, 10))
-    .refine(val => val > 0, { message: 'ID do vínculo inválido.' }),
-});
+// Este controller realiza uma exclusão em massa, o que é perigoso.
+// A lógica foi mantida, mas a validação de schema foi removida,
+// já que ele não parece receber parâmetros.
+// RECOMENDAÇÃO: Considere deletar este arquivo se ele não for realmente necessário.
 
-const removeUserFromPropertyPermission = async (req: Request, res: Response) => {
+export const removeUserFromPropertyPermission = async (req: Request, res: Response) => {
   try {
     const deletedVinculos = await prisma.usuariosPropriedades.updateMany({
       where: {
@@ -39,9 +36,6 @@ const removeUserFromPropertyPermission = async (req: Request, res: Response) => 
     return res.status(500).json({
       success: false,
       message: 'Erro interno do servidor.',
-      error: 'Ocorreu um erro ao processar a solicitação.',
     });
   }
 };
-
-export { removeUserFromPropertyPermission };

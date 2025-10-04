@@ -7,7 +7,6 @@ import { z } from 'zod';
 
 const OCR_SERVICE_URL = process.env.OCR_SERVICE_URL || 'http://localhost:8000/processar-documento';
 
-// Tornando o CEP obrigatório para a validação
 const validationSchema = z.object({
   address: z.string().min(10, { message: 'O endereço deve ter no mínimo 10 caracteres.' }),
   cep: z.string().min(8, { message: 'O CEP é obrigatório para a validação.' }),
@@ -40,7 +39,8 @@ export const validateAddressDocument = async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Falha no fluxo de validação de endereço:', error);
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ success: false, message: error.errors[0].message });
+     
+      return res.status(400).json({ success: false, message: error.issues[0].message });
     }
     if (isAxiosError(error)) {
       return res.status(error.response?.status || 502).json({ 

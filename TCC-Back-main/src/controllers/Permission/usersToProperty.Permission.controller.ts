@@ -7,22 +7,20 @@ import { z } from 'zod';
 const linkUserSchema = z.object({
   idPropriedade: z.number().int().positive('ID da propriedade deve ser um número inteiro positivo'),
   idUsuario: z.number().int().positive('ID do usuário deve ser um número inteiro positivo'),
-  permissao: z.enum(['proprietario_master', 'proprietario_comum'], {
-    errorMap: () => ({ message: 'Permissão inválida. Use "proprietario_master" ou "proprietario_comum"' }),
-  }),
+  
+  permissao: z.enum(['proprietario_master', 'proprietario_comum']),
 });
 
 const linkUsersSchema = z.array(linkUserSchema).min(1, 'Pelo menos um vínculo deve ser fornecido');
 
-const linkUserPermission = async (req: Request, res: Response) => {
+export const linkUserPermission = async (req: Request, res: Response) => {
   try {
     const parsedBody = linkUsersSchema.safeParse(req.body);
     if (!parsedBody.success) {
-      return res.status(400).json({ error: parsedBody.success === false ? parsedBody.error.errors : [] });
+      return res.status(400).json({ error: parsedBody.error.issues });
     }
 
     const vinculos = parsedBody.data;
-
     const errors: { index: number; message: string }[] = [];
     const novosVinculos: any[] = [];
 
@@ -79,21 +77,14 @@ const linkUserPermission = async (req: Request, res: Response) => {
           propriedade: {
             select: {
               id: true,
-              nomePropriedade: true,
+             
+              nomePropriedade: true, 
             },
           },
         },
       });
-
-      novosVinculos.push({
-        id: novoVinculo.id,
-        idUsuario: novoVinculo.idUsuario,
-        idPropriedade: novoVinculo.idPropriedade,
-        permissao: novoVinculo.permissao,
-        dataVinculo: novoVinculo.dataVinculo,
-        usuario: novoVinculo.usuario,
-        propriedade: novoVinculo.propriedade,
-      });
+      
+      novosVinculos.push(novoVinculo);
     }
 
     if (errors.length > 0 && novosVinculos.length === 0) {
@@ -106,5 +97,3 @@ const linkUserPermission = async (req: Request, res: Response) => {
     return res.status(500).json({ error: 'Erro interno do servidor' });
   }
 };
-
-export { linkUserPermission };

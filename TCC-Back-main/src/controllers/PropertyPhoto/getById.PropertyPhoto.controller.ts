@@ -1,6 +1,5 @@
 // Todos direitos autorais reservados pelo QOTA.
 
-
 import { prisma } from '../../utils/prisma';
 import { Request, Response } from 'express';
 import { z } from 'zod';
@@ -19,11 +18,12 @@ const getPhotoByIdSchema = z.object({
   }),
 });
 
-const getPropertyPhotoById = async (req: Request, res: Response) => {
+export const getPropertyPhotoById = async (req: Request, res: Response) => {
   try {
     const parsedParams = getPhotoByIdSchema.safeParse(req.params);
     if (!parsedParams.success) {
-      return res.status(400).json({ error: parsedParams.success === false ? parsedParams.error.errors : [] });
+
+      return res.status(400).json({ error: parsedParams.error.issues });
     }
 
     const { id } = parsedParams.data;
@@ -50,5 +50,3 @@ const getPropertyPhotoById = async (req: Request, res: Response) => {
     return res.status(500).json({ error: 'Erro interno do servidor' });
   }
 };
-
-export { getPropertyPhotoById };
