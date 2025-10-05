@@ -1,8 +1,8 @@
-Flask, 
-pytesseract, 
-opencv-python-headless, 
-Pillow, 
-pdf2image, 
-PyMuPDF, 
-thefuzz, 
-python-Levenshtein
+Flask==3.0.3
+pytesseract==0.3.10
+opencv-python-headless==4.10.0.84
+Pillow==10.4.0
+pdf2image==1.17.0
+PyMuPDF==1.24.8
+thefuzz==0.22.1
+python-Levenshtein==0.25.1

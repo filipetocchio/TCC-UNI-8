@@ -42,7 +42,7 @@ Antes de começar, garanta que você tem os seguintes softwares instalados e con
 -   **[Node.js](https://nodejs.org/en/)**: Versão `18.x` ou superior.
 -   **[Python](https://www.python.org/downloads/)**: Versão `3.9` ou superior.
 -   **[Tesseract-OCR](https://github.com/UB-Mannheim/tesseract/wiki)**: **Crucial.** Siga as instruções de instalação para o seu SO e **não se esqueça de adicionar o Tesseract ao PATH do sistema** durante a instalação.
-
+-   **[Poppler](https://github.com/oschwartz10612/poppler-windows/releases)**: **Crucial.** Siga as instruções de instalação para o seu SO e **não se esqueça de adicionar o poppler ao PATH do sistema** durante a instalação.
 ---
 
 ### Instruções Passo a Passo
@@ -71,7 +71,7 @@ python -m venv venv
 
 # Crie o arquivo requirements.txt com o conteúdo abaixo
 # (Flask, pytesseract, opencv-python-headless, Pillow, pdf2image, PyMuPDF, thefuzz, python-Levenshtein)
-
+python -m pip install --upgrade pip
 # Instale as dependências
 pip install -r requirements.txt
 

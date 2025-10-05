@@ -32,7 +32,7 @@ def process_document():
         pdf_bytes = file.read()
         full_text = ""
 
-        # --- NOVA ESTRATÉGIA DE EXTRAÇÃO ---
+    
         # 1. Tenta extrair o texto diretamente com PyMuPDF (rápido e preciso)
         with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
             for page in doc:
