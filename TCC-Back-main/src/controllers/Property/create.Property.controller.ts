@@ -4,92 +4,71 @@ import { prisma } from '../../utils/prisma';
 import { Request, Response } from 'express';
 import { z } from 'zod';
 
+/**
+ * Schema para validação dos dados de entrada para criação de uma nova propriedade.
+ */
 const createPropertySchema = z.object({
-  nomePropriedade: z.string().min(1).max(100),
-  enderecoCep: z.string().optional().refine(val => !val || /^\d{8}$/.test(val), { message: 'O CEP deve ter 8 dígitos.' }),
+  nomePropriedade: z.string().min(1, { message: "O nome da propriedade é obrigatório." }).max(100),
+  tipo: z.enum(['Casa', 'Apartamento', 'Chacara', 'Lote', 'Outros']),
+  userId: z.number().int().positive({ message: "A ID do usuário criador é inválida." }),
+  enderecoCep: z.string().optional(),
   enderecoCidade: z.string().optional(),
   enderecoBairro: z.string().optional(),
   enderecoLogradouro: z.string().optional(),
   enderecoNumero: z.string().optional(),
   enderecoComplemento: z.string().optional(),
   enderecoPontoReferencia: z.string().optional(),
-  tipo: z.enum(['Casa', 'Apartamento', 'Chacara', 'Lote', 'Outros']),
-  valorEstimado: z.number().positive().optional(),
-  documento: z.string().optional(),
-  userId: z.number().int().positive(),
+  valorEstimado: z.number().positive().optional().nullable(),
+ 
 });
 
+/**
+ * Controller para criar uma nova propriedade e vincular o usuário criador
+ * como proprietário master, atribuindo a ele 100% da cota da propriedade.
+ */
 export const createProperty = async (req: Request, res: Response) => {
   try {
-    const data = createPropertySchema.parse(req.body);
-    const {
-      nomePropriedade,
-      enderecoCep,
-      enderecoCidade,
-      enderecoBairro,
-      enderecoLogradouro,
-      enderecoNumero,
-      enderecoComplemento,
-      enderecoPontoReferencia,
-      tipo,
-      valorEstimado,
-      documento,
-      userId,
-    } = data;
+    const { userId, ...propertyData } = createPropertySchema.parse(req.body);
 
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
-      return res.status(404).json({ success: false, message: 'Usuário não encontrado.' });
+      return res.status(404).json({ success: false, message: 'Usuário criador não encontrado.' });
     }
 
-    if (user.excludedAt) {
-      return res.status(400).json({ success: false, message: `Usuário desativado (ID: ${userId}).` });
-    }
-
-    const result = await prisma.$transaction(async (tx) => {
-      const property = await tx.propriedades.create({
-        data: {
-          nomePropriedade,
-          enderecoCep,
-          enderecoCidade,
-          enderecoBairro,
-          enderecoLogradouro,
-          enderecoNumero,
-          enderecoComplemento,
-          enderecoPontoReferencia,
-          tipo,
-          valorEstimado,
-          documento,
-        },
-      });
-
-      const link = await tx.usuariosPropriedades.create({
-        data: {
-          idUsuario: userId,
-          idPropriedade: property.id,
-          permissao: 'proprietario_master',
-        },
-      });
-
-      return { property, link };
-    });
-
-    const { property } = result;
-    return res.status(201).json({
-      success: true,
-      message: `Propriedade "${property.nomePropriedade}" criada com sucesso.`,
+    // A criação da propriedade e do vínculo do usuário ocorre de forma aninhada
+    // para garantir a consistência e atomicidade da operação.
+    const newProperty = await prisma.propriedades.create({
       data: {
-        id: property.id,
-        nomePropriedade: property.nomePropriedade,
-        tipo: property.tipo,
-        dataCadastro: property.dataCadastro,
+        ...propertyData,
+        usuarios: {
+          create: [
+            {
+              idUsuario: userId,
+              permissao: 'proprietario_master',
+              porcentagemCota: 100,
+            },
+          ],
+        },
       },
     });
-  } catch (err) {
-    if (err instanceof z.ZodError) {
-      return res.status(400).json({ success: false, message: err.issues[0].message });
+
+    return res.status(201).json({
+      success: true,
+      message: `Propriedade "${newProperty.nomePropriedade}" criada com sucesso.`,
+      data: {
+        id: newProperty.id,
+        nomePropriedade: newProperty.nomePropriedade,
+        tipo: newProperty.tipo,
+        dataCadastro: newProperty.dataCadastro,
+      },
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ success: false, message: error.issues[0].message });
     }
-    console.error('Erro em createProperty:', err);
-    return res.status(500).json({ success: false, message: 'Erro interno do servidor.' });
+    
+    // Para erros inesperados, retorna uma mensagem genérica por segurança.
+    console.error("Erro não tratado ao criar propriedade:", error);
+    return res.status(500).json({ success: false, message: 'Erro interno do servidor ao criar a propriedade.' });
   }
 };

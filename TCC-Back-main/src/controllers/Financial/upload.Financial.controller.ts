@@ -56,7 +56,7 @@ export const uploadInvoice = async (req: Request, res: Response) => {
         descricao,
         valor: valorNumerico,
         dataVencimento: dataVencimentoISO,
-        empresa: ocrResponse.data.dados.empresa,
+        
         categoria: ocrResponse.data.dados.categoria,
         
         // Por enquanto, salvamos o nome do arquivo como placeholder.

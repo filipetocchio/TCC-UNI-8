@@ -4,20 +4,28 @@ import { prisma } from '../../utils/prisma';
 import { Request, Response } from "express";
 import { z } from "zod";
 
+// Schema para validação do parâmetro de ID da rota.
 const getPropertyByIdSchema = z.object({
   id: z.string().transform(val => parseInt(val, 10))
-    .refine(val => val > 0, { message: "O ID da propriedade deve ser um número positivo." }),
+    .refine(val => val > 0, { message: "O ID da propriedade é inválido." }),
 });
 
+/**
+ * Controller para buscar os detalhes completos de uma propriedade específica por seu ID.
+ */
 export const getPropertyById = async (req: Request, res: Response) => {
   try {
     const { id } = getPropertyByIdSchema.parse(req.params);
 
+    // Busca a propriedade e inclui seletivamente os dados relacionados essenciais.
     const property = await prisma.propriedades.findUnique({
       where: { id },
       select: {
         id: true,
         nomePropriedade: true,
+        tipo: true,
+        dataCadastro: true,
+        valorEstimado: true,
         enderecoCep: true,
         enderecoCidade: true,
         enderecoBairro: true,
@@ -25,9 +33,6 @@ export const getPropertyById = async (req: Request, res: Response) => {
         enderecoNumero: true,
         enderecoComplemento: true,
         enderecoPontoReferencia: true,
-        tipo: true,
-        valorEstimado: true,
-        dataCadastro: true,
         fotos: {
           select: { id: true, documento: true },
           where: { excludedAt: null }
@@ -39,11 +44,12 @@ export const getPropertyById = async (req: Request, res: Response) => {
         usuarios: {
           where: { usuario: { excludedAt: null } },
           select: {
-            id: true,
+            id: true, // ID do vínculo (UsuariosPropriedades)
             permissao: true,
+            porcentagemCota: true,
             usuario: {
               select: {
-                id: true,
+                id: true, // ID do usuário
                 nomeCompleto: true,
                 email: true,
               }
@@ -72,12 +78,6 @@ export const getPropertyById = async (req: Request, res: Response) => {
         message: error.issues[0].message,
       });
     }
-    console.error("Erro no getPropertyById:", error);
-    const errorMessage = error instanceof Error ? error.message : "Ocorreu um erro inesperado.";
-    return res.status(500).json({
-      success: false,
-      message: "Erro interno do servidor.",
-      error: errorMessage,
-    });
+    return res.status(500).json({ success: false, message: "Erro interno do servidor ao buscar a propriedade." });
   }
 };

@@ -1,98 +1,138 @@
-/**
- * @file invite.unit.test.ts
- * @description Suíte de testes de unidade para o controller de criação de convites.
- * Testa a lógica de negócio e as regras de autorização de forma isolada do banco de dados.
- */
+// Todos direitos autorais reservados pelo QOTA.
+
+import { acceptInvite } from '../controllers/Invite/accept.Invite.controller';
+import { prisma } from '../utils/prisma';
 import { Request, Response } from 'express';
-import { mockDeep, DeepMockProxy } from 'jest-mock-extended';
-import { PrismaClient } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 
-// --- Configuração do Mock do Prisma ---
-// A variável do mock é declarada aqui, antes da chamada jest.mock.
-const mockPrisma: DeepMockProxy<PrismaClient> = mockDeep<PrismaClient>();
-
-// --- Mocking do Módulo Prisma ---
-// Esta configuração instrui o Jest a substituir qualquer importação do '../utils/prisma'
-// por nosso mock. A chamada é feita aqui no topo para evitar erros de hoisting.
+// Mock do Prisma Client para simular o banco de dados.
 jest.mock('../utils/prisma', () => ({
-  __esModule: true,
-  prisma: mockPrisma,
+  prisma: {
+    $transaction: jest.fn(),
+    convite: {
+      findFirst: jest.fn(),
+      update: jest.fn(),
+    },
+    usuariosPropriedades: {
+      findFirst: jest.fn(),
+      update: jest.fn(),
+      create: jest.fn(),
+    },
+  },
 }));
 
-// Aqui, o controller APÓS o mock ter sido configurado.
-import { createInvite } from '../controllers/Invite/create.Invite.controller';
+// Funções para criar mocks dos objetos Request e Response do Express.
+const mockRequest = (params: any, user: any): Request => ({
+  params,
+  user,
+} as unknown as Request);
 
-describe('Unit Test: createInvite Controller', () => {
-  let mockRequest: Partial<Request>;
-  let mockResponse: Partial<Response>;
+const mockResponse = (): Response => {
+  const res: Partial<Response> = {};
+  res.status = jest.fn().mockReturnValue(res);
+  res.json = jest.fn().mockReturnValue(res);
+  return res as Response;
+};
 
-  // Reseta os mocks e o estado antes de cada teste para garantir o isolamento.
+// --- MOCKS ATUALIZADOS ---
+// Os objetos de simulação agora incluem os novos campos do schema.
+
+const mockUser = { id: 2, email: 'novo.cotista@qota.com' };
+
+const mockValidInvite = {
+  id: 1,
+  token: 'valid-token',
+  emailConvidado: 'novo.cotista@qota.com',
+  idPropriedade: 10,
+  idConvidadoPor: 1,
+  permissao: 'proprietario_comum',
+  porcentagemCota: 25.5,       // Campo agora presente
+  usuarioJaExiste: true,       // Campo agora presente
+  status: 'PENDENTE' as const, // Assegura o tipo correto para o enum
+  dataExpiracao: new Date(Date.now() + 24 * 60 * 60 * 1000),
+};
+
+const mockMasterLink = {
+  id: 101,
+  idUsuario: 1,
+  idPropriedade: 10,
+  porcentagemCota: 70,         // Campo agora presente
+  permissao: 'proprietario_master'
+};
+
+
+describe('acceptInvite Controller - Teste de Cenários', () => {
+
   beforeEach(() => {
     jest.clearAllMocks();
-    mockRequest = {
-      body: {
-        emailConvidado: 'novo.membro@qota.com',
-        idPropriedade: 1,
-        permissao: 'proprietario_comum',
-      },
-      user: { // Simula um usuário autenticado vindo do middleware 'protect'
-        id: 1,
-        email: 'master@qota.com',
-      },
-    };
-    mockResponse = {
-      status: jest.fn().mockReturnThis(),
-      json: jest.fn(),
-    };
   });
 
-  it('should create an invite successfully when called by a master owner', async () => {
-    // Configuração do Cenário (Arrange):
-    mockPrisma.usuariosPropriedades.findFirst.mockResolvedValue({ id: 1, idUsuario: 1, idPropriedade: 1, permissao: 'proprietario_master', dataVinculo: new Date(), createdAt: new Date(), updatedAt: new Date(), excludedAt: null, openedAt: new Date(), closedAt: null });
-    mockPrisma.convite.create.mockResolvedValue({ id: 1, token: 'fake-token', emailConvidado: 'novo.membro@qota.com', idPropriedade: 1, idConvidadoPor: 1, permissao: 'proprietario_comum', dataExpiracao: new Date(), status: 'PENDENTE', aceitoEm: null, createdAt: new Date(), updatedAt: new Date() });
+  // ==================================
+  // CENÁRIOS DE FALHA
+  // ==================================
 
-    // Execução (Act):
-    await createInvite(mockRequest as Request, mockResponse as Response);
-
-    // Validação (Assert):
-    expect(mockResponse.status).toHaveBeenCalledWith(201);
-    expect(mockResponse.json).toHaveBeenCalledWith(
-      expect.objectContaining({
-        success: true,
-        message: expect.stringContaining('Convite criado com sucesso'),
-      })
-    );
+  it('Deve retornar erro 401 se o usuário não estiver autenticado', async () => {
+    const req = mockRequest({ token: 'some-token' }, undefined);
+    const res = mockResponse();
+    await acceptInvite(req, res);
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith({ success: false, message: "Usuário não autenticado." });
   });
 
-  it('should return 403 Forbidden if the user is not a master owner', async () => {
-    // Configuração do Cenário (Arrange):
-    mockPrisma.usuariosPropriedades.findFirst.mockResolvedValue(null);
-
-    // Execução (Act):
-    await createInvite(mockRequest as Request, mockResponse as Response);
-
-    // Validação (Assert):
-    expect(mockResponse.status).toHaveBeenCalledWith(403);
-    expect(mockResponse.json).toHaveBeenCalledWith({
-      success: false,
-      message: expect.stringContaining('Acesso negado'),
+  it('Deve retornar erro se o convite não for encontrado', async () => {
+    const req = mockRequest({ token: 'invalid-token' }, mockUser);
+    const res = mockResponse();
+    (prisma.$transaction as jest.Mock).mockImplementation(async (callback) => {
+      const mockTx = { convite: { findFirst: jest.fn().mockResolvedValue(null) } };
+      return await callback(mockTx);
     });
+    await acceptInvite(req, res);
+    expect(res.status).toHaveBeenCalledWith(400); // Erros de validação retornam 400
+    expect(res.json).toHaveBeenCalledWith({ success: false, message: "Convite inválido, expirado ou já utilizado." });
+  });
+  
+  it('Deve retornar erro se o email do usuário não corresponder ao do convite', async () => {
+    const req = mockRequest({ token: 'valid-token' }, { id: 3, email: 'wrong.user@qota.com' });
+    const res = mockResponse();
+    (prisma.$transaction as jest.Mock).mockImplementation(async (callback) => {
+      const mockTx = { convite: { findFirst: jest.fn().mockResolvedValue(mockValidInvite) } };
+      return await callback(mockTx);
+    });
+    await acceptInvite(req, res);
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({ success: false, message: "Acesso negado: Este convite foi destinado a outro e-mail." });
   });
 
-  it('should return 409 Conflict if the invited user is already a member', async () => {
-    // Configuração do Cenário (Arrange):
-    mockPrisma.usuariosPropriedades.findFirst.mockResolvedValueOnce({ id: 1, idUsuario: 1, idPropriedade: 1, permissao: 'proprietario_master', dataVinculo: new Date(), createdAt: new Date(), updatedAt: new Date(), excludedAt: null, openedAt: new Date(), closedAt: null });
-    mockPrisma.user.findUnique.mockResolvedValue({ id: 2, email: 'novo.membro@qota.com', nomeCompleto: 'Membro Antigo', password: '', cpf: '12345678901', refreshToken: null, telefone: null, dataCadastro: new Date(), dataConsentimento: new Date(), versaoTermos: '1.0', createdAt: new Date(), updatedAt: new Date(), excludedAt: null, openedAt: new Date(), closedAt: null });
-    mockPrisma.usuariosPropriedades.findFirst.mockResolvedValueOnce({ id: 2, idUsuario: 2, idPropriedade: 1, permissao: 'proprietario_comum', dataVinculo: new Date(), createdAt: new Date(), updatedAt: new Date(), excludedAt: null, openedAt: new Date(), closedAt: null });
+  // ==================================
+  // CENÁRIO DE SUCESSO
+  // ==================================
+  
+  it('Deve executar a transação com sucesso e retornar 200', async () => {
+    const req = mockRequest({ token: 'valid-token' }, mockUser);
+    const res = mockResponse();
+    const newCreatedLink = { id: 202, idUsuario: mockUser.id, porcentagemCota: 25.5 };
 
-    // Execução (Act):
-    await createInvite(mockRequest as Request, mockResponse as Response);
-
-    // Validação (Assert):
-    expect(mockResponse.status).toHaveBeenCalledWith(409);
-    expect(mockResponse.json).toHaveBeenCalledWith({
-      success: false,
-      message: 'Este usuário já é membro da propriedade.',
+    (prisma.$transaction as jest.Mock).mockImplementation(async (callback) => {
+      const mockTx = { 
+        convite: { 
+          findFirst: jest.fn().mockResolvedValue(mockValidInvite),
+          update: jest.fn().mockResolvedValue({}),
+        },
+        usuariosPropriedades: { 
+          findFirst: jest.fn().mockResolvedValue(mockMasterLink),
+          update: jest.fn().mockResolvedValue({}),
+          create: jest.fn().mockResolvedValue(newCreatedLink),
+        }
+      };
+      return await callback(mockTx);
     });
+
+    await acceptInvite(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      success: true,
+      message: "Convite aceito! A propriedade foi adicionada à sua conta.",
+    }));
   });
 });

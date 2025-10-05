@@ -19,6 +19,9 @@ const paramsSchema = z.object({
   id: z.string().transform(val => parseInt(val, 10)),
 });
 
+/**
+ * Atualiza os dados de um item de inventário existente.
+ */
 export const updateInventoryItem = async (req: Request, res: Response) => {
   try {
     const { id } = paramsSchema.parse(req.params);
@@ -29,14 +32,15 @@ export const updateInventoryItem = async (req: Request, res: Response) => {
     });
 
     if (!itemExists) {
-      return res.status(404).json({ success: false, message: 'Item de inventário não encontrado.' });
+      return res.status(404).json({ success: false, message: 'O item de inventário não foi encontrado.' });
     }
 
     const updatedItem = await prisma.itemInventario.update({
       where: { id },
       data: {
         ...dataToUpdate,
-        dataAquisicao: dataToUpdate.dataAquisicao ? new Date(dataToUpdate.dataAquisicao) : dataToUpdate.dataAquisicao,
+        // Converte a data apenas se ela for fornecida
+        dataAquisicao: dataToUpdate.dataAquisicao ? new Date(dataToUpdate.dataAquisicao) : undefined,
       },
     });
 
@@ -45,12 +49,10 @@ export const updateInventoryItem = async (req: Request, res: Response) => {
       message: 'Item atualizado com sucesso.',
       data: updatedItem,
     });
-
   } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ success: false, message: error.issues[0].message });
     }
-    console.error('Erro ao atualizar item de inventário:', error);
-    return res.status(500).json({ success: false, message: 'Erro interno do servidor.' });
+    return res.status(500).json({ success: false, message: 'Erro interno do servidor ao atualizar o item.' });
   }
 };

@@ -3,6 +3,7 @@
 import { prisma } from '../../utils/prisma';
 import { Request, Response } from 'express';
 import { z } from 'zod';
+import { Prisma } from '@prisma/client';
 
 const getUsersByPropertyIdSchema = z.object({
   id: z.string().regex(/^\d+$/, 'O ID da propriedade deve ser um número inteiro.').transform(Number),
@@ -17,35 +18,28 @@ const getUsersByPropertyId = async (req: Request, res: Response) => {
       id: req.params.id,
       ...req.query,
     });
-
     const skip = (page - 1) * limit;
 
-    const propriedade = await prisma.propriedades.findUnique({
-      where: { id: idPropriedade },
-    });
-    if (!propriedade) {
-      return res.status(404).json({
-        success: false,
-        message: `Propriedade com ID ${idPropriedade} não encontrada.`,
-      });
-    }
-
-    const where: any = { idPropriedade };
+    const where: Prisma.UsuariosPropriedadesWhereInput = { idPropriedade };
     if (search) {
       where.usuario = {
         OR: [
-          { email: { contains: search, mode: 'insensitive' } },
-          { nomeCompleto: { contains: search, mode: 'insensitive' } },
+          
+          { email: { contains: search } },
+          { nomeCompleto: { contains: search } },
         ],
       };
     }
 
-    const [vinculos, total] = await Promise.all([
+    const [vinculos, total] = await prisma.$transaction([
       prisma.usuariosPropriedades.findMany({
         where,
         skip,
         take: limit,
-        include: {
+        select: {
+          id: true,
+          permissao: true,
+          porcentagemCota: true,
           usuario: {
             select: { id: true, nomeCompleto: true, email: true },
           },
@@ -58,31 +52,18 @@ const getUsersByPropertyId = async (req: Request, res: Response) => {
 
     return res.status(200).json({
       success: true,
-      message: "Vínculos da propriedade recuperados com sucesso.",
+      message: "Membros da propriedade recuperados com sucesso.",
       data: {
-        vinculos: vinculos,
+        vinculos,
         pagination: { page, limit, total, totalPages },
       },
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({
-        success: false,
-        message: error.issues[0].message,
-      });
+      return res.status(400).json({ success: false, message: error.issues[0].message });
     }
-
-    console.error("Erro em getUsersByPropertyId:", error);
-
-    let errorMessage = "Ocorreu um erro interno no servidor.";
-    if (error instanceof Error) {
-      errorMessage = error.message;
-    }
-
-    return res.status(500).json({
-      success: false,
-      message: errorMessage,
-    });
+    const errorMessage = error instanceof Error ? error.message : "Ocorreu um erro inesperado.";
+    return res.status(500).json({ success: false, message: "Erro interno do servidor.", error: errorMessage });
   }
 };
 

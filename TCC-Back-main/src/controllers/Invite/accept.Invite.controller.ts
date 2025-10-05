@@ -1,84 +1,96 @@
-/**
- * @file accept.Invite.controller.ts
- * @description Controller para o processo de aceitação de um convite por um usuário autenticado.
- */
 // Todos direitos autorais reservados pelo QOTA.
 
 import { prisma } from '../../utils/prisma';
 import { Request, Response } from 'express';
 import { Prisma } from '@prisma/client';
 
+// Define um tipo para o cliente de transação do Prisma, melhorando a legibilidade.
+type TransactionClient = Omit<Prisma.TransactionClient, '$commit' | '$rollback'>;
+
 /**
- * @function acceptInvite
- * @async
- * @description Manipula a requisição de um usuário para aceitar um convite.
- * @param {Request} req - O objeto de requisição do Express, contendo o token e o usuário autenticado.
- * @param {Response} res - O objeto de resposta do Express.
- * @returns {Promise<Response>} Retorna uma resposta JSON indicando sucesso ou falha.
+ * Manipula a aceitação de um convite, realizando a transferência de cota
+ * e a criação do vínculo do novo membro de forma transacional e segura.
  */
 export const acceptInvite = async (req: Request, res: Response) => {
+  const { token } = req.params;
+
+  if (!req.user) {
+    return res.status(401).json({ success: false, message: "Usuário não autenticado." });
+  }
+  const { id: idUsuarioLogado, email: emailUsuarioLogado } = req.user;
+  
   try {
-    const { token } = req.params;
-    
-    // 1. Validação de Autenticação
-    // Garante que o middleware 'protect' adicionou o objeto 'user' à requisição.
-    if (!req.user) {
-      return res.status(401).json({ success: false, message: "Usuário não autenticado." });
-    }
-    const { id: idUsuarioLogado, email: emailUsuarioLogado } = req.user;
+    // A lógica é encapsulada em uma transação para garantir a consistência dos dados.
+    await prisma.$transaction(async (tx: TransactionClient) => {
+      // 1. Busca o convite válido e pendente.
+      const convite = await tx.convite.findFirst({
+        where: {
+          token,
+          status: 'PENDENTE',
+          dataExpiracao: { gte: new Date() },
+        },
+      });
 
-    // 2. Busca e Validação do Convite
-    // Procura por um convite que corresponda ao token, esteja PENDENTE e não tenha expirado.
-    const convite = await prisma.convite.findFirst({
-      where: {
-        token,
-        status: 'PENDENTE',
-        dataExpiracao: { gte: new Date() }, // gte = Greater Than or Equal (maior ou igual a)
-      },
-    });
+      if (!convite) {
+        throw new Error("Convite inválido, expirado ou já utilizado.");
+      }
+      if (convite.emailConvidado.toLowerCase() !== emailUsuarioLogado.toLowerCase()) {
+        throw new Error("Acesso negado: Este convite foi destinado a outro e-mail.");
+      }
 
-    if (!convite) {
-      return res.status(404).json({ success: false, message: "Convite inválido, expirado ou já utilizado." });
-    }
+      // 2. Busca o vínculo do master que enviou o convite.
+      const masterLink = await tx.usuariosPropriedades.findFirst({
+          where: {
+              idUsuario: convite.idConvidadoPor,
+              idPropriedade: convite.idPropriedade,
+          }
+      });
 
-    // 3. Verificação de Segurança Crítica
-    // Compara o e-mail do usuário logado com o e-mail para o qual o convite foi destinado.
-    if (convite.emailConvidado.toLowerCase() !== emailUsuarioLogado.toLowerCase()) {
-      return res.status(403).json({ success: false, message: "Acesso negado: Este convite foi destinado a outro e-mail." });
-    }
+      if (!masterLink) {
+        throw new Error("O usuário que o convidou não é mais membro desta propriedade.");
+      }
 
-    // 4. Transação Atômica para garantir a integridade dos dados
-    // Esta operação garante que ou AMBAS as escritas no banco (criar o vínculo e atualizar o convite)
-    // são bem-sucedidas, ou NENHUMA delas é aplicada em caso de erro.
-    await prisma.$transaction(async (tx) => {
-      // Cria a associação entre o usuário e a propriedade
+      // 3. Validação final de segurança: o master ainda possui cota suficiente?
+      if (masterLink.porcentagemCota < convite.porcentagemCota) {
+          throw new Error(`O proprietário master não possui cota suficiente (${masterLink.porcentagemCota}%) para ceder.`);
+      }
+
+      // 4. Subtrai a porcentagem da cota do master.
+      await tx.usuariosPropriedades.update({
+          where: { id: masterLink.id },
+          data: { porcentagemCota: { decrement: convite.porcentagemCota } }
+      });
+
+      // 5. Cria o novo vínculo para o usuário que aceitou o convite.
       await tx.usuariosPropriedades.create({
         data: {
           idUsuario: idUsuarioLogado,
           idPropriedade: convite.idPropriedade,
           permissao: convite.permissao,
+          porcentagemCota: convite.porcentagemCota,
         },
       });
-      // Atualiza o status do convite para evitar reutilização
+
+      // 6. Finaliza o convite, atualizando seu status.
       await tx.convite.update({
         where: { id: convite.id },
         data: { status: 'ACEITO', aceitoEm: new Date() },
       });
     });
 
-    return res.status(200).json({ success: true, message: "Convite aceito! A propriedade foi adicionada à sua conta." });
+    return res.status(200).json({ 
+        success: true, 
+        message: "Convite aceito! A propriedade foi adicionada à sua conta.",
+    });
   
   } catch (error) {
-    // Tratamento de Erro Específico do Prisma (P2002: Unique constraint failed)
-    // Ocorre se o usuário tentar aceitar um convite para uma propriedade à qual ele já está vinculado.
+    // Trata o caso específico de o usuário já ser membro.
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-        // Atualiza o convite para ACEITO para que não fique pendente indefinidamente.
-        await prisma.convite.update({ where: { token: req.params.token }, data: { status: 'ACEITO' }});
+        await prisma.convite.update({ where: { token }, data: { status: 'ACEITO' }});
         return res.status(409).json({ success: false, message: 'Você já é membro desta propriedade.' });
     }
 
-    // Tratamento de Erros Genéricos
-    console.error("Erro ao aceitar convite:", error);
-    return res.status(500).json({ success: false, message: "Erro interno do servidor ao processar o convite." });
+    const errorMessage = error instanceof Error ? error.message : "Erro interno ao processar o convite.";
+    return res.status(400).json({ success: false, message: errorMessage });
   }
 };

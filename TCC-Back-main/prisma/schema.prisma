@@ -1,6 +1,5 @@
 // Todos direitos autorais reservados pelo QOTA.
 
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,132 +9,20 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Enums
 enum StatusConvite {
   PENDENTE
   ACEITO
   EXPIRADO
 }
 
-model User {
-  id            Int       @id @default(autoincrement())
-  email         String    @unique
-  password      String
-  refreshToken  String?   @unique
-  nomeCompleto  String
-  telefone      String?
-  cpf           String    @unique
-  dataCadastro  DateTime @default(now())
-  propriedades  UsuariosPropriedades[]
-  userPhoto     UserPhoto?
-  dataConsentimento DateTime?
-  versaoTermos      String?
-  
-  
-// log
-  openedAt   DateTime  @default(now())
-  closedAt   DateTime?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-  excludedAt DateTime?
-  convitesEnviados   Convite[] @relation("ConvidadoPor") 
+enum StatusPagamento {
+  PENDENTE
+  PARCIALMENTE_PAGO
+  PAGO
+  ATRASADO
 }
 
-/// Foto de perfil do usuário
-model UserPhoto {
-  id         Int      @id @default(autoincrement())
-  userId     Int      @unique
-  filename   String
-  url        String
-  uploadedAt DateTime @default(now())
-
-  user       User     @relation(fields: [userId], references: [id])
-}
-
-
-
-model Propriedades {
-  id                      Int      @id @default(autoincrement())
-  nomePropriedade         String
-  enderecoCep             String?
-  enderecoCidade          String?
-  enderecoBairro          String?
-  enderecoLogradouro      String?
-  enderecoNumero          String?
-  enderecoComplemento     String?
-  enderecoPontoReferencia String?
-  tipo                    String   // Casa, Apartamento, Chacara, Lote, Outros
-  valorEstimado           Float?
-  documento               String?
-  dataCadastro            DateTime @default(now())
-  usuarios                UsuariosPropriedades[]
-  fotos                   FotosPropriedade[]
-  documentos              DocumentosPropriedade[]
-  inventario              ItemInventario[] 
-  convites                Convite[]
-  despesas                Despesa[]
-  // log
-  openedAt   DateTime  @default(now())
-  closedAt   DateTime?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-  excludedAt DateTime?
-}
-
-model UsuariosPropriedades {
-  id            Int       @id @default(autoincrement())
-  idUsuario     Int
-  idPropriedade Int
-  permissao     String    // proprietario_master, proprietario_comum
-  dataVinculo   DateTime  @default(now())
-  usuario       User      @relation(fields: [idUsuario], references: [id])
-  propriedade   Propriedades @relation(fields: [idPropriedade], references: [id])
-
-  @@unique([idUsuario, idPropriedade])
-
-
-// log
-  openedAt   DateTime  @default(now())
-  closedAt   DateTime?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-  excludedAt DateTime?
-
-}
-
-model FotosPropriedade {
-  id            Int       @id @default(autoincrement())
-  idPropriedade Int
-  documento     String
-  dataUpload    DateTime  @default(now())
-  propriedade   Propriedades @relation(fields: [idPropriedade], references: [id])
-
-// log
-  openedAt   DateTime  @default(now())
-  closedAt   DateTime?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-  excludedAt DateTime?
-
-}
-
-model DocumentosPropriedade {
-  id            Int       @id @default(autoincrement())
-  idPropriedade Int
-  tipoDocumento String    // IPTU, Matricula, Conta_de_Luz, Outros
-  documento     String
-  dataUpload    DateTime  @default(now())
-  propriedade   Propriedades @relation(fields: [idPropriedade], references: [id])
-
-// log
-  openedAt   DateTime  @default(now())
-  closedAt   DateTime?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-  excludedAt DateTime?
-}
-
-
-/// Enum para o estado de conservação dos itens do inventário
 enum EstadoConservacao {
   NOVO
   BOM
@@ -143,7 +30,107 @@ enum EstadoConservacao {
   DANIFICADO
 }
 
-/// Itens do inventário de uma propriedade
+// Modelos
+model User {
+  id                Int       @id @default(autoincrement())
+  email             String    @unique
+  password          String
+  refreshToken      String?   @unique
+  nomeCompleto      String
+  telefone          String?
+  cpf               String    @unique
+  dataCadastro      DateTime  @default(now())
+  dataConsentimento DateTime?
+  versaoTermos      String?
+
+  userPhoto         UserPhoto?
+  propriedades      UsuariosPropriedades[]
+  convitesEnviados  Convite[]              @relation("ConvidadoPor")
+  pagamentos        PagamentoCotista[]
+
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  excludedAt        DateTime?
+}
+
+model UserPhoto {
+  id         Int      @id @default(autoincrement())
+  userId     Int      @unique
+  filename   String
+  url        String
+  uploadedAt DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id])
+}
+
+model Propriedades {
+  id                      Int      @id @default(autoincrement())
+  nomePropriedade         String
+  tipo                    String
+  valorEstimado           Float?
+  enderecoCep             String?
+  enderecoCidade          String?
+  enderecoBairro          String?
+  enderecoLogradouro      String?
+  enderecoNumero          String?
+  enderecoComplemento     String?
+  enderecoPontoReferencia String?
+
+  usuarios    UsuariosPropriedades[]
+  fotos       FotosPropriedade[]
+  documentos  DocumentosPropriedade[]
+  inventario  ItemInventario[]
+  convites    Convite[]
+  despesas    Despesa[]
+
+  dataCadastro DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  excludedAt   DateTime?
+}
+
+model UsuariosPropriedades {
+  id              Int      @id @default(autoincrement())
+  idUsuario       Int
+  idPropriedade   Int
+  permissao       String
+  porcentagemCota Float    @default(0)
+  dataVinculo     DateTime @default(now())
+
+  usuario     User         @relation(fields: [idUsuario], references: [id])
+  propriedade Propriedades @relation(fields: [idPropriedade], references: [id])
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  excludedAt  DateTime?
+
+  @@unique([idUsuario, idPropriedade])
+}
+
+model FotosPropriedade {
+  id            Int       @id @default(autoincrement())
+  idPropriedade Int
+  documento     String
+  dataUpload    DateTime  @default(now())
+
+  propriedade   Propriedades @relation(fields: [idPropriedade], references: [id])
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  excludedAt    DateTime?
+}
+
+model DocumentosPropriedade {
+  id            Int       @id @default(autoincrement())
+  idPropriedade Int
+  tipoDocumento String
+  documento     String
+  dataUpload    DateTime  @default(now())
+
+  propriedade   Propriedades @relation(fields: [idPropriedade], references: [id])
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  excludedAt    DateTime?
+}
+
 model ItemInventario {
   id                 Int      @id @default(autoincrement())
   idPropriedade      Int
@@ -152,56 +139,47 @@ model ItemInventario {
   estadoConservacao  EstadoConservacao @default(BOM)
   categoria          String?
   dataAquisicao      DateTime?
-  descricao          String? 
+  descricao          String?
   valorEstimado      Float?
   codigoBarras       String?  @unique
 
-  // ... relacionamentos e logs
-  propriedade        Propriedades @relation(fields: [idPropriedade], references: [id])
+  propriedade        Propriedades     @relation(fields: [idPropriedade], references: [id])
   fotos              FotoInventario[]
+
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
   excludedAt         DateTime?
 }
 
-/// Fotos de um item específico do inventário
 model FotoInventario {
   id               Int      @id @default(autoincrement())
   idItemInventario Int
-  filename         String   // Nome do arquivo salvo no disco
-  url              String   // Caminho para acessar o arquivo via API
+  filename         String
+  url              String
 
-  // Relacionamento com o item do inventário
   itemInventario   ItemInventario @relation(fields: [idItemInventario], references: [id])
-
-  // log
-  uploadedAt       DateTime @default(now())
+  uploadedAt       DateTime       @default(now())
   excludedAt       DateTime?
 }
 
 model Convite {
-  id              Int           @id @default(autoincrement())
-  token           String        @unique // Token único e seguro (ex: UUID)
-  emailConvidado  String        // Email para quem o convite foi enviado
-  idPropriedade   Int
-  idConvidadoPor  Int           // ID do usuário que enviou o convite
-  permissao       String        // Permissão a ser concedida (ex: "proprietario_comum")
-  dataExpiracao   DateTime      // Data em que o convite se torna inválido
-  status          StatusConvite @default(PENDENTE)
-  aceitoEm        DateTime?     // Data em que foi aceito
+  id                Int           @id @default(autoincrement())
+  token             String        @unique
+  emailConvidado    String
+  idPropriedade     Int
+  idConvidadoPor    Int
+  permissao         String
+  porcentagemCota   Float         @default(0)
+  usuarioJaExiste   Boolean       @default(false)
+  dataExpiracao     DateTime
+  status            StatusConvite @default(PENDENTE)
+  aceitoEm          DateTime?
 
-  // Relacionamentos
   propriedade     Propriedades @relation(fields: [idPropriedade], references: [id])
   convidadoPor    User         @relation("ConvidadoPor", fields: [idConvidadoPor], references: [id])
 
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
-}
-
-enum StatusPagamento {
-  PENDENTE
-  PAGO
-  ATRASADO
 }
 
 model Despesa {
@@ -210,14 +188,27 @@ model Despesa {
   descricao       String
   valor           Float
   dataVencimento  DateTime
-  empresa         String?
   categoria       String?
-  urlComprovante  String
+  urlComprovante  String?
   status          StatusPagamento @default(PENDENTE)
-  dataCadastro    DateTime @default(now())
-  
-  propriedade     Propriedades @relation(fields: [idPropriedade], references: [id])
+
+  propriedade     Propriedades       @relation(fields: [idPropriedade], references: [id])
+  pagamentos      PagamentoCotista[]
 
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+}
+
+model PagamentoCotista {
+  id            Int      @id @default(autoincrement())
+  idDespesa     Int
+  idCotista     Int
+  valorDevido   Float
+  pago          Boolean  @default(false)
+  dataPagamento DateTime?
+
+  despesa Despesa @relation(fields: [idDespesa], references: [id])
+  cotista User    @relation(fields: [idCotista], references: [id])
+
+  @@unique([idDespesa, idCotista])
 }

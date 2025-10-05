@@ -1,18 +1,17 @@
-/**
- * @file getPendingByProperty.Invite.controller.ts
- * @description Controller para listar todos os convites com status PENDENTE para uma propriedade específica.
- */
-
 // Todos direitos autorais reservados pelo QOTA.
 
 import { prisma } from '../../utils/prisma';
 import { Request, Response } from 'express';
 import { z } from 'zod';
 
+// Schema para validação do ID da propriedade vindo da rota.
 const paramsSchema = z.object({
   propertyId: z.string().transform(val => parseInt(val, 10)),
 });
 
+/**
+ * Lista todos os convites pendentes e não expirados para uma propriedade específica.
+ */
 export const getPendingByProperty = async (req: Request, res: Response) => {
   try {
     const { propertyId } = paramsSchema.parse(req.params);
@@ -27,6 +26,7 @@ export const getPendingByProperty = async (req: Request, res: Response) => {
         id: true,
         emailConvidado: true,
         permissao: true,
+        porcentagemCota: true, 
         dataExpiracao: true,
       },
       orderBy: {
@@ -40,8 +40,9 @@ export const getPendingByProperty = async (req: Request, res: Response) => {
       data: pendingInvites,
     });
   } catch (error) {
-    // Tratamento de erros...
-    console.error("Erro ao buscar convites pendentes:", error);
-    return res.status(500).json({ success: false, message: "Erro interno do servidor." });
+    if (error instanceof z.ZodError) {
+        return res.status(400).json({ success: false, message: error.issues[0].message });
+    }
+    return res.status(500).json({ success: false, message: "Erro interno do servidor ao buscar convites." });
   }
 };

@@ -4,23 +4,34 @@ import { prisma } from '../../utils/prisma';
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import { randomBytes } from 'crypto';
-import { Prisma } from '@prisma/client';
 
+/**
+ * Schema de validação para os dados de entrada da criação de um convite.
+ * Garante que todos os campos necessários sejam fornecidos e formatados corretamente.
+ */
 const createInviteSchema = z.object({
-  emailConvidado: z.string().email({ message: "O formato do e-mail do convidado é inválido." }),
-  idPropriedade: z.number().int().positive({ message: "O ID da propriedade é obrigatório." }),
-  permissao: z.string().min(1, { message: "A permissão é obrigatória." }),
+  emailConvidado: z.string().email({ message: "O formato do e-mail é inválido." }),
+  idPropriedade: z.number().int().positive(),
+  permissao: z.enum(['proprietario_master', 'proprietario_comum']),
+  porcentagemCota: z.number().min(0, "A cota não pode ser negativa.").max(100, "A cota não pode exceder 100%."),
 });
 
+/**
+ * Manipula a criação de um novo convite para uma propriedade.
+ * Este processo inclui validação de permissão, verificação de cota disponível
+ * e registro se o usuário convidado já possui uma conta.
+ */
 export const createInvite = async (req: Request, res: Response) => {
   try {
     if (!req.user) {
       return res.status(401).json({ success: false, message: "Usuário não autenticado." });
     }
-    const { emailConvidado, idPropriedade, permissao } = createInviteSchema.parse(req.body);
+
+    const { emailConvidado, idPropriedade, permissao, porcentagemCota } = createInviteSchema.parse(req.body);
     const { id: idConvidadoPor } = req.user;
 
-    const masterPermission = await prisma.usuariosPropriedades.findFirst({
+    // Valida se o usuário que está fazendo a requisição é um proprietário master da propriedade.
+    const masterLink = await prisma.usuariosPropriedades.findFirst({
       where: {
         idUsuario: idConvidadoPor,
         idPropriedade: idPropriedade,
@@ -28,24 +39,36 @@ export const createInvite = async (req: Request, res: Response) => {
       },
     });
 
-    if (!masterPermission) {
+    if (!masterLink) {
       return res.status(403).json({ success: false, message: "Acesso negado: Apenas proprietários master podem enviar convites." });
     }
-
-    const existingUser = await prisma.user.findUnique({ where: { email: emailConvidado } });
-    if (existingUser) {
-        const isAlreadyMember = await prisma.usuariosPropriedades.findFirst({
-            where: { idUsuario: existingUser.id, idPropriedade: idPropriedade }
-        });
-        if (isAlreadyMember) {
-            return res.status(409).json({ success: false, message: "Este usuário já é membro da propriedade." });
-        }
+    
+    // Valida se o proprietário master possui cota suficiente para ceder ao novo membro.
+    if (masterLink.porcentagemCota < porcentagemCota) {
+        return res.status(400).json({ success: false, message: `Você não pode ceder ${porcentagemCota}% pois possui apenas ${masterLink.porcentagemCota}%.`});
     }
 
+    // Verifica se o usuário a ser convidado já existe no sistema.
+    const invitedUserExists = await prisma.user.findUnique({
+      where: { email: emailConvidado },
+    });
+
+    if (invitedUserExists) {
+      // Se o usuário já existe, verifica se ele já não é membro desta propriedade.
+      const isAlreadyMember = await prisma.usuariosPropriedades.findFirst({
+        where: { idUsuario: invitedUserExists.id, idPropriedade: idPropriedade }
+      });
+      if (isAlreadyMember) {
+        return res.status(409).json({ success: false, message: "Este usuário já é membro da propriedade." });
+      }
+    }
+
+    // Gera um token criptograficamente seguro para o convite.
     const token = randomBytes(32).toString('hex');
     const dataExpiracao = new Date();
-    dataExpiracao.setDate(dataExpiracao.getDate() + 7);
+    dataExpiracao.setDate(dataExpiracao.getDate() + 7); // Define a validade para 7 dias.
 
+    // Cria o registro do convite no banco de dados.
     const convite = await prisma.convite.create({
       data: {
         token,
@@ -53,6 +76,8 @@ export const createInvite = async (req: Request, res: Response) => {
         idPropriedade,
         idConvidadoPor,
         permissao,
+        porcentagemCota,
+        usuarioJaExiste: !!invitedUserExists,
         dataExpiracao,
       },
     });
@@ -70,7 +95,6 @@ export const createInvite = async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, message: error.issues[0].message });
     }
     
-    console.error("Erro ao criar convite:", error);
     return res.status(500).json({ success: false, message: "Erro interno do servidor ao criar o convite." });
   }
 };

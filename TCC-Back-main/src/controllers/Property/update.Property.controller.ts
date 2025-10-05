@@ -14,30 +14,17 @@ const updatePropertySchema = z.object({
   enderecoComplemento: z.string().optional(),
   enderecoPontoReferencia: z.string().optional(),
   tipo: z.enum(['Casa', 'Apartamento', 'Chacara', 'Lote', 'Outros']).optional(),
-  valorEstimado: z.number().positive({ message: 'O valor estimado deve ser positivo.' }).optional(),
-  documento: z.string().optional(),
-  propertyId: z.number().int().positive({ message: 'ID da propriedade inválido.' }),
+  valorEstimado: z.number().positive({ message: 'O valor estimado deve ser positivo.' }).optional().nullable(),
+});
+
+const paramsSchema = z.object({
+    id: z.string().transform(val => parseInt(val, 10)),
 });
 
 export const updateProperty = async (req: Request, res: Response) => {
   try {
-    const {
-      nomePropriedade,
-      enderecoCep,
-      enderecoCidade,
-      enderecoBairro,
-      enderecoLogradouro,
-      enderecoNumero,
-      enderecoComplemento,
-      enderecoPontoReferencia,
-      tipo,
-      valorEstimado,
-      documento,
-      propertyId,
-    } = updatePropertySchema.parse({
-      ...req.body,
-      propertyId: parseInt(req.params.id),
-    });
+    const { id: propertyId } = paramsSchema.parse(req.params);
+    const dataToUpdate = updatePropertySchema.parse(req.body);
 
     const property = await prisma.propriedades.findUnique({
       where: { id: propertyId },
@@ -53,26 +40,13 @@ export const updateProperty = async (req: Request, res: Response) => {
     if (property.excludedAt) {
       return res.status(400).json({
         success: false,
-        message: 'Propriedade já foi deletada.',
+        message: 'Não é possível editar uma propriedade que já foi excluída.',
       });
     }
 
-    const updateData: any = {};
-    if (nomePropriedade) updateData.nomePropriedade = nomePropriedade;
-    if (enderecoCep !== undefined) updateData.enderecoCep = enderecoCep;
-    if (enderecoCidade !== undefined) updateData.enderecoCidade = enderecoCidade;
-    if (enderecoBairro !== undefined) updateData.enderecoBairro = enderecoBairro;
-    if (enderecoLogradouro !== undefined) updateData.enderecoLogradouro = enderecoLogradouro;
-    if (enderecoNumero !== undefined) updateData.enderecoNumero = enderecoNumero;
-    if (enderecoComplemento !== undefined) updateData.enderecoComplemento = enderecoComplemento;
-    if (enderecoPontoReferencia !== undefined) updateData.enderecoPontoReferencia = enderecoPontoReferencia;
-    if (tipo) updateData.tipo = tipo;
-    if (valorEstimado !== undefined) updateData.valorEstimado = valorEstimado;
-    if (documento !== undefined) updateData.documento = documento;
-
     const updatedProperty = await prisma.propriedades.update({
       where: { id: propertyId },
-      data: updateData,
+      data: dataToUpdate,
       select: {
         id: true,
         nomePropriedade: true,
@@ -85,7 +59,6 @@ export const updateProperty = async (req: Request, res: Response) => {
         enderecoPontoReferencia: true,
         tipo: true,
         valorEstimado: true,
-        documento: true,
         dataCadastro: true,
       },
     });
