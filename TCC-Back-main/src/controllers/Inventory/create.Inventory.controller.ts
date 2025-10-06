@@ -3,6 +3,7 @@
 import { prisma } from '../../utils/prisma';
 import { Request, Response } from 'express';
 import { z } from 'zod';
+import { createNotification } from '../../utils/notification.service';
 
 const createInventoryItemSchema = z.object({
   idPropriedade: z.number().int().positive(),
@@ -17,32 +18,42 @@ const createInventoryItemSchema = z.object({
 });
 
 /**
- * Cria um novo item de inventário associado a uma propriedade.
+ * Cria um novo item de inventário associado a uma propriedade e notifica
+ * os membros sobre a adição.
  */
 export const createInventoryItem = async (req: Request, res: Response) => {
   try {
+    if (!req.user) {
+        return res.status(401).json({ success: false, message: "Usuário não autenticado." });
+    }
+    const { id: userId, nomeCompleto: userName } = req.user;
+
     const validatedData = createInventoryItemSchema.parse(req.body);
+    const { idPropriedade } = validatedData;
 
     const propertyExists = await prisma.propriedades.findFirst({
-      where: { id: validatedData.idPropriedade, excludedAt: null },
+      where: { id: idPropriedade, excludedAt: null },
     });
 
     if (!propertyExists) {
-      return res.status(404).json({ success: false, message: 'A propriedade informada não foi encontrada ou está inativa.' });
+      return res.status(404).json({
+        success: false,
+        message: 'A propriedade informada não foi encontrada ou está inativa.',
+      });
     }
 
     const newItem = await prisma.itemInventario.create({
       data: {
-        idPropriedade: validatedData.idPropriedade,
-        nome: validatedData.nome,
-        quantidade: validatedData.quantidade,
-        estadoConservacao: validatedData.estadoConservacao,
-        categoria: validatedData.categoria,
+        ...validatedData,
         dataAquisicao: validatedData.dataAquisicao ? new Date(validatedData.dataAquisicao) : null,
-        descricao: validatedData.descricao,
-        valorEstimado: validatedData.valorEstimado,
-        codigoBarras: validatedData.codigoBarras,
       },
+    });
+
+    // 2. CRIA A NOTIFICAÇÃO APÓS O SUCESSO DA CRIAÇÃO
+    await createNotification({
+        idPropriedade: idPropriedade,
+        idAutor: userId,
+        mensagem: `O usuário '${userName}' adicionou o item '${newItem.nome}' ao inventário.`,
     });
 
     return res.status(201).json({
@@ -50,6 +61,7 @@ export const createInventoryItem = async (req: Request, res: Response) => {
       message: `Item "${newItem.nome}" adicionado com sucesso.`,
       data: newItem,
     });
+
   } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ success: false, message: error.issues[0].message });

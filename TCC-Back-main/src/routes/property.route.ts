@@ -8,13 +8,13 @@ import { getPropertyById } from "../controllers/Property/getById.Property.contro
 import { updateProperty } from "../controllers/Property/update.Property.controller";
 import { deleteProperty } from "../controllers/Property/delete.Property.controller";
 import { deletePropertyById } from "../controllers/Property/deleteById.Property.controller";
+import { protect } from "../middleware/authMiddleware"; 
 
 export const property = express.Router();
 
 property.post("/create", createProperty);
-property.get("/", getProperty);
-property.get("/:id", getPropertyById);
-property.put("/:id", updateProperty);
-
-property.delete("/", deleteProperty);
-property.delete("/:id", deletePropertyById);
+property.get("/:id", protect, getPropertyById);
+property.get("/", protect, getProperty); 
+property.put("/:id", protect, updateProperty);
+property.delete("/", protect, deleteProperty); 
+property.delete("/:id", protect, deletePropertyById);

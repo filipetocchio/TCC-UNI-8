@@ -52,7 +52,11 @@ export const registerAuth = async (req: Request, res: Response) => {
     });
 
     const accessToken = jwt.sign(
-      { userId: user.id, email: user.email },
+      { 
+        userId: user.id, 
+        email: user.email,
+        nomeCompleto: user.nomeCompleto 
+      },
       process.env.ACCESS_TOKEN_SECRET as string,
       { expiresIn: "6h" }
     );

@@ -14,9 +14,15 @@ import { getUsuariosPropriedades } from '../controllers/Permission/get.Permissio
 import { getByIDsuariosPropriedades as getUsersByPropertyId } from '../controllers/Permission/getById.Permission.controller';
 import { updatePermission } from '../controllers/Permission/update.Permission.controller';
 import { updateCotaPermission } from '../controllers/Permission/updateCota.Permission.controller';
+import { unlinkUserFromProperty } from '../controllers/Permission/unlink.Permission.controller'; 
 
 export const permission = express.Router();
-
+/**
+ * @route   DELETE /api/v1/permission/unlink/me/:vinculoId
+ * @desc    Permite que o usuário autenticado remova seu próprio vínculo com uma propriedade.
+ * @access  Privado
+ */
+permission.delete('/unlink/me/:vinculoId', protect, unlinkUserFromProperty);
 /**
  * @route   GET /api/v1/permission
  * @desc    Lista todos os vínculos do sistema (rota administrativa).

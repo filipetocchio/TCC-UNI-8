@@ -36,12 +36,16 @@ export const loginAuth = async (req: Request, res: Response) => {
     }
 
     const accessToken = jwt.sign(
-      { userId: user.id, email: user.email },
+      { 
+        userId: user.id, 
+        email: user.email,
+        nomeCompleto: user.nomeCompleto 
+      },
       process.env.ACCESS_TOKEN_SECRET as string,
       { expiresIn: "6h" }
     );
     const refreshToken = jwt.sign(
-      { userId: user.id, email: user.email },
+      { userId: user.id, email: user.email }, 
       process.env.REFRESH_TOKEN_SECRET as string,
       { expiresIn: "1d" }
     );

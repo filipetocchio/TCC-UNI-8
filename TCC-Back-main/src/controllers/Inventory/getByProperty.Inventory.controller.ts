@@ -5,9 +5,13 @@ import { Request, Response } from 'express';
 import { z } from 'zod';
 
 const getInventorySchema = z.object({
-  propertyId: z.string().transform(val => parseInt(val, 10)).refine(val => val > 0, { message: 'ID da propriedade inválido.' }),
+  propertyId: z.string().transform(val => parseInt(val, 10)).refine(val => val > 0, { message: 'O ID da propriedade é inválido.' }),
 });
 
+/**
+ * Busca e retorna todos os itens de inventário de uma propriedade,
+ * garantindo que apenas as fotos não excluídas sejam incluídas.
+ */
 export const getInventoryByProperty = async (req: Request, res: Response) => {
   try {
     const { propertyId } = getInventorySchema.parse(req.params);
@@ -15,13 +19,18 @@ export const getInventoryByProperty = async (req: Request, res: Response) => {
     const inventoryItems = await prisma.itemInventario.findMany({
       where: {
         idPropriedade: propertyId,
-        excludedAt: null,
+        excludedAt: null, // Busca apenas itens de inventário ativos
       },
       orderBy: {
         nome: 'asc',
       },
       include: {
-        fotos: true,
+        // A correção definitiva: filtra as fotos incluídas.
+        fotos: {
+          where: {
+            excludedAt: null, // Traz apenas as fotos que não foram soft-deletadas.
+          },
+        },
       },
     });
 
@@ -34,7 +43,6 @@ export const getInventoryByProperty = async (req: Request, res: Response) => {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ success: false, message: error.issues[0].message });
     }
-    console.error('Erro ao buscar inventário por propriedade:', error);
-    return res.status(500).json({ success: false, message: 'Erro interno do servidor.' });
+    return res.status(500).json({ success: false, message: 'Erro interno do servidor ao buscar o inventário.' });
   }
 };

@@ -3,3 +3,9 @@ dist
 .env
 logs
 prisma/dev.db
+TCC-Back-main/uploads/
+TCC-Front_Web/public/uploads/
+*.pdf
+*.png
+*.jpeg
+*.jpg

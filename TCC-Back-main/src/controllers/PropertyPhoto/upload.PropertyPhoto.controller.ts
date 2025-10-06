@@ -7,6 +7,8 @@ import { z } from 'zod';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import { createNotification } from '../../utils/notification.service';
+
 
 // 1) Schema de validação
 const uploadPhotoSchema = z.object({
@@ -46,72 +48,58 @@ const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
 }).single('foto');
 
-// 5) Controller
+/**
+ * Controller para o upload de uma foto de propriedade.
+ * Inclui a criação de uma notificação para registrar a atividade.
+ */
 const UploadPropertyPhoto = (req: Request, res: Response) => {
   upload(req, res, async (err) => {
-    // 5.1 Erros de multer
-    if (err instanceof multer.MulterError) {
-      return res.status(400).json({ error: `Multer: ${err.message}` });
-    } else if (err) {
-      return res.status(400).json({ error: err.message });
-    }
-
-    if (!req.file) {
-      return res.status(400).json({ error: 'Nenhuma foto enviada' });
-    }
-
-    // 5.2 Parse do body com Zod
-    let idPropriedade: number;
     try {
-      const parsed = uploadPhotoSchema.parse(req.body);
-      idPropriedade = parsed.idPropriedade;
-    } catch (parseErr) {
-      if (parseErr instanceof z.ZodError) {
-        return res.status(400).json({
-          error: 'Dados inválidos',
-          details: parseErr.issues
-        });
+      if (!req.user) {
+        return res.status(401).json({ success: false, message: "Usuário não autenticado." });
       }
-      return res.status(500).json({ error: 'Erro interno ao validar dados' });
-    }
+      const { id: userId, nomeCompleto: userName } = req.user;
 
-    // 5.3 Verifica existência da propriedade
-    try {
+      if (err instanceof multer.MulterError) {
+        return res.status(400).json({ error: `Erro no upload: ${err.message}` });
+      } else if (err) {
+        return res.status(400).json({ error: err.message });
+      }
+      if (!req.file) {
+        return res.status(400).json({ error: 'Nenhum arquivo de foto foi enviado.' });
+      }
+
+      const { idPropriedade } = uploadPhotoSchema.parse(req.body);
+
       const propriedade = await prisma.propriedades.findUnique({
         where: { id: idPropriedade }
       });
       if (!propriedade) {
-        return res.status(404).json({ error: `Propriedade ${idPropriedade} não encontrada` });
+        return res.status(404).json({ error: `Propriedade com ID ${idPropriedade} não encontrada.` });
       }
-    } catch (dbErr) {
-      console.error(dbErr);
-      return res.status(500).json({ error: 'Erro ao buscar propriedade' });
-    }
 
-    // 5.4 Cria registro e retorna
-    try {
       const foto = await prisma.fotosPropriedade.create({
         data: {
           idPropriedade,
           documento: `/uploads/${req.file.filename}`,
           dataUpload: new Date()
         },
-        include: {
-          propriedade: {
-            select: { id: true, nomePropriedade: true }
-          }
-        }
       });
-      return res.status(201).json({
-        id: foto.id,
-        idPropriedade: foto.idPropriedade,
-        documento: foto.documento,
-        dataUpload: foto.dataUpload,
-        propriedade: foto.propriedade
+
+      // 5. CRIA A NOTIFICAÇÃO
+      await createNotification({
+        idPropriedade,
+        idAutor: userId,
+        mensagem: `O usuário '${userName}' adicionou uma nova foto à propriedade '${propriedade.nomePropriedade}'.`,
       });
-    } catch (saveErr) {
-      console.error('Erro ao salvar foto:', saveErr);
-      return res.status(500).json({ error: 'Erro interno ao salvar foto' });
+
+      return res.status(201).json(foto);
+
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ success: false, message: error.issues[0].message });
+      }
+      return res.status(500).json({ success: false, message: 'Erro interno ao salvar a foto.' });
     }
   });
 };

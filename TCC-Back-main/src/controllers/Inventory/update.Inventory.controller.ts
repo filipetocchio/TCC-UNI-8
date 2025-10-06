@@ -3,6 +3,7 @@
 import { prisma } from '../../utils/prisma';
 import { Request, Response } from 'express';
 import { z } from 'zod';
+import { createNotification } from '../../utils/notification.service';
 
 const updateInventoryItemSchema = z.object({
   nome: z.string().min(1).max(150).optional(),
@@ -20,10 +21,16 @@ const paramsSchema = z.object({
 });
 
 /**
- * Atualiza os dados de um item de inventário existente.
+ * Atualiza os dados de um item de inventário existente e notifica
+ * os membros sobre a alteração.
  */
 export const updateInventoryItem = async (req: Request, res: Response) => {
   try {
+    if (!req.user) {
+      return res.status(401).json({ success: false, message: "Usuário não autenticado." });
+    }
+    const { id: userId, nomeCompleto: userName } = req.user;
+
     const { id } = paramsSchema.parse(req.params);
     const dataToUpdate = updateInventoryItemSchema.parse(req.body);
 
@@ -39,9 +46,15 @@ export const updateInventoryItem = async (req: Request, res: Response) => {
       where: { id },
       data: {
         ...dataToUpdate,
-        // Converte a data apenas se ela for fornecida
         dataAquisicao: dataToUpdate.dataAquisicao ? new Date(dataToUpdate.dataAquisicao) : undefined,
       },
+    });
+
+    // 2. CRIA A NOTIFICAÇÃO APÓS A ATUALIZAÇÃO
+    await createNotification({
+        idPropriedade: updatedItem.idPropriedade,
+        idAutor: userId,
+        mensagem: `O usuário '${userName}' atualizou o item '${updatedItem.nome}' no inventário.`,
     });
 
     return res.status(200).json({
@@ -49,6 +62,7 @@ export const updateInventoryItem = async (req: Request, res: Response) => {
       message: 'Item atualizado com sucesso.',
       data: updatedItem,
     });
+
   } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ success: false, message: error.issues[0].message });

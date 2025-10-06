@@ -5,30 +5,28 @@ import { Request, Response } from 'express';
 import { z } from 'zod';
 
 const getPropertySchema = z.object({
-  limit: z.string().optional().transform(v => v ? parseInt(v, 10) : 10).refine(v => v > 0, { message: 'Limit must be a positive number.' }),
-  page: z.string().optional().transform(v => v ? parseInt(v, 10) : 1).refine(v => v > 0, { message: 'Page must be a positive number.' }),
+  limit: z.string().optional().transform(v => v ? parseInt(v, 10) : 10).refine(v => v > 0),
+  page: z.string().optional().transform(v => v ? parseInt(v, 10) : 1).refine(v => v > 0),
   search: z.string().optional(),
   showDeleted: z.enum(['true','false','only']).optional().default('false'),
   sortBy: z.enum(['dataCadastro','valorEstimado','nomePropriedade']).optional().default('dataCadastro'),
   sortOrder: z.enum(['asc','desc']).optional().default('desc'),
 });
 
+/**
+ * Lista todas as propriedades com filtros e paginação, garantindo que
+ * todos os dados essenciais dos vínculos de usuário sejam incluídos.
+ */
 export const getProperty = async (req: Request, res: Response) => {
   try {
     const { limit, page, search, showDeleted, sortBy, sortOrder } = getPropertySchema.parse(req.query);
-    console.log('getProperty params:', { limit, page, search, showDeleted, sortBy, sortOrder });
 
     const skip = (page - 1) * limit;
     const where: any = {};
     if (search) {
       where.OR = [
         { nomePropriedade: { contains: search, mode: 'insensitive' } },
-        { enderecoCep:       { contains: search, mode: 'insensitive' } },
         { enderecoCidade:    { contains: search, mode: 'insensitive' } },
-        { enderecoBairro:    { contains: search, mode: 'insensitive' } },
-        { enderecoLogradouro:{ contains: search, mode: 'insensitive' } },
-        { tipo:              { contains: search, mode: 'insensitive' } },
-        { documento:         { contains: search, mode: 'insensitive' } },
       ];
     }
     if (showDeleted === 'false')      where.excludedAt = null;
@@ -47,28 +45,38 @@ export const getProperty = async (req: Request, res: Response) => {
           nomePropriedade: true,
           tipo: true,
           dataCadastro: true,
-          usuarios: { select: { usuario: { select: { id: true, nomeCompleto: true } }, permissao: true } },
-          fotos:    { select: { id: true, documento: true } },
+          
+          usuarios: { 
+            select: { 
+              id: true,
+              permissao: true,
+              porcentagemCota: true,
+              usuario: { 
+                select: { 
+                  id: true, 
+                  nomeCompleto: true 
+                } 
+              } 
+            } 
+          },
+          fotos: { select: { id: true, documento: true }, take: 1 },
         },
       }),
       prisma.propriedades.count({ where }),
     ]);
-    console.log('Fetched properties count:', properties.length);
-
-    const formatted = properties.map(p => {
-      const usuarios = p.usuarios.map(u => ({ id: u.usuario.id, nomeCompleto: u.usuario.nomeCompleto, permissao: u.permissao }));
-      console.log(`Property ${p.id} usuarios:`, usuarios);
-      return { ...p, usuarios };
-    });
 
     const totalPages = Math.ceil(total / limit);
-    return res.json({ success: true, message: 'Propriedades recuperadas.', data: { properties: formatted, pagination: { page, limit, total, totalPages } } });
+    // Não é mais necessário formatar, pois o select já retorna a estrutura correta.
+    return res.json({ 
+      success: true, 
+      message: 'Propriedades recuperadas com sucesso.', 
+      data: { properties: properties, pagination: { page, limit, total, totalPages } } 
+    });
   } catch (err) {
     if (err instanceof z.ZodError) {
-      console.error('Validation error in getProperty:', err.issues);
       return res.status(400).json({ success: false, message: err.issues[0].message });
     }
     console.error('Error in getProperty:', err);
-    return res.status(500).json({ success: false, error: 'Erro interno do servidor.' });
+    return res.status(500).json({ success: false, message: 'Erro interno do servidor.' });
   }
 };

@@ -159,6 +159,25 @@ CREATE TABLE "PagamentoCotista" (
     CONSTRAINT "PagamentoCotista_idCotista_fkey" FOREIGN KEY ("idCotista") REFERENCES "User" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
+-- CreateTable
+CREATE TABLE "Notificacao" (
+    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "idPropriedade" INTEGER NOT NULL,
+    "idAutor" INTEGER NOT NULL,
+    "mensagem" TEXT NOT NULL,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "Notificacao_idPropriedade_fkey" FOREIGN KEY ("idPropriedade") REFERENCES "Propriedades" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT "Notificacao_idAutor_fkey" FOREIGN KEY ("idAutor") REFERENCES "User" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+);
+
+-- CreateTable
+CREATE TABLE "_NotificacoesLidas" (
+    "A" INTEGER NOT NULL,
+    "B" INTEGER NOT NULL,
+    CONSTRAINT "_NotificacoesLidas_A_fkey" FOREIGN KEY ("A") REFERENCES "Notificacao" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT "_NotificacoesLidas_B_fkey" FOREIGN KEY ("B") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
 
@@ -182,3 +201,9 @@ CREATE UNIQUE INDEX "Convite_token_key" ON "Convite"("token");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "PagamentoCotista_idDespesa_idCotista_key" ON "PagamentoCotista"("idDespesa", "idCotista");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "_NotificacoesLidas_AB_unique" ON "_NotificacoesLidas"("A", "B");
+
+-- CreateIndex
+CREATE INDEX "_NotificacoesLidas_B_index" ON "_NotificacoesLidas"("B");

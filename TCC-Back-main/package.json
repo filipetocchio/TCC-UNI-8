@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "nodemon",
+    "dev": "nodemon --watch src --ext ts --exec ts-node src/server.ts",
     "migrate": "npx prisma migrate dev",
     "studio": "npx prisma studio",
     "build": "rimraf ./dist && tsc",

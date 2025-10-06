@@ -66,7 +66,7 @@ describe('Auth Endpoints', () => {
       .post('/api/v1/auth/login')
       .send({
         email: testUser.email,
-        password: testUser.password, // Envia a senha em texto plano, como um usuário faria
+        password: testUser.password, 
       });
 
     expect(response.status).toBe(200);

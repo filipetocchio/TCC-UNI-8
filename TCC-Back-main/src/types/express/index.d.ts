@@ -10,6 +10,7 @@
 interface UserPayload {
   id: number;
   email: string;
+  nomeCompleto: string;
 }
 
 // Sobrescreve a interface Request do Express para adicionar nossas propriedades customizadas

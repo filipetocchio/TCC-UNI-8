@@ -43,11 +43,15 @@ model User {
   dataConsentimento DateTime?
   versaoTermos      String?
 
-  userPhoto         UserPhoto?
-  propriedades      UsuariosPropriedades[]
-  convitesEnviados  Convite[]              @relation("ConvidadoPor")
-  pagamentos        PagamentoCotista[]
+  // Relacionamentos
+  userPhoto           UserPhoto?
+  propriedades        UsuariosPropriedades[]
+  convitesEnviados    Convite[]                @relation("ConvidadoPor")
+  pagamentos          PagamentoCotista[]
+  notificacoesLidas   Notificacao[]            @relation("NotificacoesLidas")
+  notificacoesGeradas Notificacao[]            @relation("AutorDaNotificacao")
 
+  // Campos para soft-delete e logs
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
   excludedAt        DateTime?
@@ -81,6 +85,7 @@ model Propriedades {
   inventario  ItemInventario[]
   convites    Convite[]
   despesas    Despesa[]
+  notificacoes Notificacao[]
 
   dataCadastro DateTime @default(now())
   createdAt    DateTime @default(now())
@@ -93,12 +98,12 @@ model UsuariosPropriedades {
   idUsuario       Int
   idPropriedade   Int
   permissao       String
-  porcentagemCota Float    @default(0)
+  porcentagemCota Float    @default(0) 
   dataVinculo     DateTime @default(now())
 
   usuario     User         @relation(fields: [idUsuario], references: [id])
   propriedade Propriedades @relation(fields: [idPropriedade], references: [id])
-
+  
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   excludedAt  DateTime?
@@ -211,4 +216,18 @@ model PagamentoCotista {
   cotista User    @relation(fields: [idCotista], references: [id])
 
   @@unique([idDespesa, idCotista])
+}
+
+model Notificacao {
+  id            Int      @id @default(autoincrement())
+  idPropriedade Int
+  idAutor       Int      
+  mensagem      String   
+  
+  lidaPor       User[]   @relation("NotificacoesLidas") 
+
+  propriedade   Propriedades @relation(fields: [idPropriedade], references: [id])
+  autor         User         @relation(fields: [idAutor], references: [id], name: "AutorDaNotificacao")
+
+  createdAt     DateTime @default(now())
 }
