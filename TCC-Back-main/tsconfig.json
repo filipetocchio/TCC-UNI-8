@@ -16,7 +16,7 @@
   },
   "include": [
     "src/**/*"
-  ],
+, "src/singleton.ts"  ],
  
   "ts-node": {
     "files": true
