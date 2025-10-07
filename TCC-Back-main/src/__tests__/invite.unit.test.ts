@@ -35,7 +35,6 @@ const mockResponse = (): Response => {
 };
 
 // --- MOCKS ATUALIZADOS ---
-// Os objetos de simulação agora incluem os novos campos do schema.
 
 const mockUser = { id: 2, email: 'novo.cotista@qota.com' };
 
@@ -46,8 +45,8 @@ const mockValidInvite = {
   idPropriedade: 10,
   idConvidadoPor: 1,
   permissao: 'proprietario_comum',
-  porcentagemCota: 25.5,       // Campo agora presente
-  usuarioJaExiste: true,       // Campo agora presente
+  porcentagemCota: 25.5,       
+  usuarioJaExiste: true,       
   status: 'PENDENTE' as const, // Assegura o tipo correto para o enum
   dataExpiracao: new Date(Date.now() + 24 * 60 * 60 * 1000),
 };
@@ -56,7 +55,7 @@ const mockMasterLink = {
   id: 101,
   idUsuario: 1,
   idPropriedade: 10,
-  porcentagemCota: 70,         // Campo agora presente
+  porcentagemCota: 70,         
   permissao: 'proprietario_master'
 };
 

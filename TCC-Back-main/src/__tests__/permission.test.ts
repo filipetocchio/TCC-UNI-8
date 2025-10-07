@@ -5,7 +5,7 @@ import express, { Request, Response, NextFunction } from 'express';
 import { apiV1Router } from '../routes/routes';
 import { prismaMock } from '../../jest.setup';
 
-// Mock dinâmico do middleware de autenticação, agora com os tipos corretos.
+// Mock dinâmico do middleware de autenticação.
 let mockUser: { id: number; email: string; nomeCompleto: string } | undefined = undefined;
 jest.mock('../middleware/authMiddleware', () => ({
   protect: (req: Request, res: Response, next: NextFunction) => {
@@ -22,8 +22,6 @@ app.use(express.json());
 app.use('/api/v1', apiV1Router);
 
 // --- MOCKS DE DADOS COMPLETOS ---
-// Estes objetos agora correspondem 100% à estrutura do schema.prisma,
-// incluindo todos os campos obrigatórios e opcionais.
 
 const masterUser = { id: 1, email: 'master@qota.com', nomeCompleto: 'Master da Silva' };
 const commonUser = { id: 2, email: 'comum@qota.com', nomeCompleto: 'Comum de Souza' };

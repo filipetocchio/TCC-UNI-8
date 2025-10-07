@@ -97,7 +97,7 @@ describe('Endpoints de Inventário (/api/v1/inventory)', () => {
         .send({ idPropriedade: 999, nome: 'Item Fantasma' });
 
       expect(response.status).toBe(404);
-      // Ajustado para esperar a mensagem de erro correta e mais completa.
+      
       expect(response.body.message).toContain('A propriedade informada não foi encontrada ou está inativa.');
     });
   });

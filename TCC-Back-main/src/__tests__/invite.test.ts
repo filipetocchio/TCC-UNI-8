@@ -6,7 +6,7 @@ import { apiV1Router } from '../routes/routes';
 import { prismaMock } from '../../jest.setup';
 import { StatusConvite } from '@prisma/client';
 
-// Mock dinâmico do middleware de autenticação, agora com os tipos corretos.
+// Mock dinâmico do middleware de autenticação.
 let mockUser: { id: number; email: string; nomeCompleto: string } | undefined = undefined;
 jest.mock('../middleware/authMiddleware', () => ({
   protect: (req: Request, res: Response, next: NextFunction) => {
