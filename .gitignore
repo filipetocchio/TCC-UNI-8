@@ -42,7 +42,6 @@ TCC-Back-main/src/controllers/Calendar/
 
 TCC-Back-main/src/jobs/
 
-TCC-Back-main/src/controllers/Financial/
 
 # Ignora pastas específicas de componentes do Módulo Financeiro no frontend
 TCC-Front_Web/src/components/financial/
