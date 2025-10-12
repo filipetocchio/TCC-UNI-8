@@ -241,7 +241,7 @@ def process_document():
             "dados": financial_data
         }), 200
 
-    # --- Lógica para Validação de Endereço (Mantida como estava) ---
+    # --- Lógica para Validação de Endereço  ---
     else:
         address_from_form = request.form.get('endereco_formulario')
         cep_from_form = request.form.get('cep_formulario', '').strip()
