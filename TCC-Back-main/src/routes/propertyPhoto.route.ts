@@ -8,9 +8,11 @@ import { getPropertyPhoto } from "../controllers/PropertyPhoto/get.PropertyPhoto
 import { getPropertyPhotoById } from "../controllers/PropertyPhoto/getById.PropertyPhoto.controller";
 import { deletePropertyPhoto } from "../controllers/PropertyPhoto/delete.PropertyPhoto.controller";
 import { deletePropertyPhotoById } from "../controllers/PropertyPhoto/deleteById.PropertyPhoto.controller";
+import { uploadPropertyPhoto } from '../middleware/upload'; 
+
 export const propertyPhoto = express.Router();
 
-propertyPhoto.post("/upload", protect, UploadPropertyPhoto);
+propertyPhoto.post("/upload", protect, uploadPropertyPhoto.single('foto'), UploadPropertyPhoto);
 propertyPhoto.get("/", protect, getPropertyPhoto);
 propertyPhoto.get("/:id", protect, getPropertyPhotoById);
 propertyPhoto.delete("/", protect, deletePropertyPhoto);

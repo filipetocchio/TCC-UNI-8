@@ -15,6 +15,7 @@ import { getByIDsuariosPropriedades as getUsersByPropertyId } from '../controlle
 import { updatePermission } from '../controllers/Permission/update.Permission.controller';
 import { updateCotaPermission } from '../controllers/Permission/updateCota.Permission.controller';
 import { unlinkUserFromProperty } from '../controllers/Permission/unlink.Permission.controller'; 
+import { unlinkMemberFromProperty } from '../controllers/Permission/unlinkMember.Permission.controller';
 
 export const permission = express.Router();
 /**
@@ -23,6 +24,13 @@ export const permission = express.Router();
  * @access  Privado
  */
 permission.delete('/unlink/me/:vinculoId', protect, unlinkUserFromProperty);
+
+/**
+ * @route   DELETE /api/v1/permission/unlink/member/:vinculoId
+ * @desc    Permite que um master remova outro membro da propriedade.
+ * @access  Privado (Master)
+ */
+permission.delete('/unlink/member/:vinculoId', protect, unlinkMemberFromProperty);
 /**
  * @route   GET /api/v1/permission
  * @desc    Lista todos os vínculos do sistema (rota administrativa).

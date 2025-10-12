@@ -21,6 +21,7 @@ enum StatusPagamento {
   PARCIALMENTE_PAGO
   PAGO
   ATRASADO
+  CANCELADO 
 }
 
 enum EstadoConservacao {
@@ -28,6 +29,13 @@ enum EstadoConservacao {
   BOM
   DESGASTADO
   DANIFICADO
+}
+
+enum StatusReserva {
+  CONFIRMADA
+  CONCLUIDA
+  CANCELADA
+  NO_SHOW 
 }
 
 // Modelos
@@ -50,8 +58,10 @@ model User {
   pagamentos          PagamentoCotista[]
   notificacoesLidas   Notificacao[]            @relation("NotificacoesLidas")
   notificacoesGeradas Notificacao[]            @relation("AutorDaNotificacao")
-
-  // Campos para soft-delete e logs
+  despesasCriadas     Despesa[]                @relation("CriadoPor")
+  reservas            Reserva[]                
+  penalidades         Penalidade[]             
+  checklistsRealizados ChecklistInventario[] 
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
   excludedAt        DateTime?
@@ -71,6 +81,8 @@ model Propriedades {
   nomePropriedade         String
   tipo                    String
   valorEstimado           Float?
+  
+  // Endereço
   enderecoCep             String?
   enderecoCidade          String?
   enderecoBairro          String?
@@ -79,18 +91,95 @@ model Propriedades {
   enderecoComplemento     String?
   enderecoPontoReferencia String?
 
-  usuarios    UsuariosPropriedades[]
-  fotos       FotosPropriedade[]
-  documentos  DocumentosPropriedade[]
-  inventario  ItemInventario[]
-  convites    Convite[]
-  despesas    Despesa[]
+  duracaoMinimaEstadia    Int      @default(1)
+  duracaoMaximaEstadia    Int      @default(7)
+  horarioCheckin          String   @default("15:00")
+  horarioCheckout         String   @default("11:00")
+  prazoCancelamentoReserva Int      @default(14) // Em dias
+  limiteFeriadosPorCotista    Int? // Opcional: Máximo de feriados por cotista por ano
+  limiteReservasAtivasPorCotista Int? // Opcional: Máximo de reservas futuras ativas por cotista
+  // Relacionamentos
+  usuarios     UsuariosPropriedades[]
+  fotos        FotosPropriedade[]
+  documentos   DocumentosPropriedade[]
+  inventario   ItemInventario[]
+  convites     Convite[]
+  despesas     Despesa[]
   notificacoes Notificacao[]
-
+  reservas     Reserva[]         
+  penalidades  Penalidade[]      
+  datasEspeciais DataEspecial[]  
+  
   dataCadastro DateTime @default(now())
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   excludedAt   DateTime?
+}
+
+model Reserva {
+  id              Int           @id @default(autoincrement())
+  idPropriedade   Int
+  idUsuario       Int
+  dataInicio      DateTime
+  dataFim         DateTime
+  numeroHospedes  Int
+  status          StatusReserva @default(CONFIRMADA)
+  
+  propriedade     Propriedades @relation(fields: [idPropriedade], references: [id])
+  usuario         User         @relation(fields: [idUsuario], references: [id])
+  checklist       ChecklistInventario[] 
+
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+}
+
+model ChecklistInventario {
+  id          Int      @id @default(autoincrement())
+  idReserva   Int
+  idUsuario   Int      // Quem realizou o checklist
+  tipo        String   // "CHECKIN" ou "CHECKOUT"
+  data        DateTime @default(now())
+  observacoes String?
+
+  reserva     Reserva @relation(fields: [idReserva], references: [id])
+  usuario     User    @relation(fields: [idUsuario], references: [id])
+  itens       ItemChecklist[]
+}
+
+model ItemChecklist {
+  id                    Int      @id @default(autoincrement())
+  idChecklist           Int
+  idItemInventario      Int
+  estadoConservacao     EstadoConservacao // Estado do item no momento do checklist
+  observacao            String?
+  fotoUrl               String?           // URL da foto, caso um problema seja reportado
+
+  checklist       ChecklistInventario @relation(fields: [idChecklist], references: [id])
+  itemInventario  ItemInventario      @relation(fields: [idItemInventario], references: [id])
+
+}
+
+model Penalidade {
+  id            Int      @id @default(autoincrement())
+  idPropriedade Int
+  idUsuario     Int
+  motivo        String   // Ex: "Cancelamento fora do prazo", "No-show"
+  dataFim       DateTime // Data até quando a penalidade (ex: bloqueio) é válida
+
+  propriedade Propriedades @relation(fields: [idPropriedade], references: [id])
+  usuario     User         @relation(fields: [idUsuario], references: [id])
+  createdAt   DateTime     @default(now())
+}
+
+model DataEspecial {
+  id            Int      @id @default(autoincrement())
+  idPropriedade Int
+  data          DateTime
+  descricao     String   // Ex: "Feriado de Natal", "Alta Temporada"
+  tipo          String   // "FERIADO_NACIONAL", "FERIADO_LOCAL", "ALTA_DEMANDA"
+
+  propriedade Propriedades @relation(fields: [idPropriedade], references: [id])
+  createdAt   DateTime     @default(now())
 }
 
 model UsuariosPropriedades {
@@ -98,9 +187,9 @@ model UsuariosPropriedades {
   idUsuario       Int
   idPropriedade   Int
   permissao       String
-  porcentagemCota Float    @default(0) 
+  porcentagemCota Float    @default(0)
   dataVinculo     DateTime @default(now())
-
+  
   usuario     User         @relation(fields: [idUsuario], references: [id])
   propriedade Propriedades @relation(fields: [idPropriedade], references: [id])
   
@@ -150,6 +239,7 @@ model ItemInventario {
 
   propriedade        Propriedades     @relation(fields: [idPropriedade], references: [id])
   fotos              FotoInventario[]
+  checklists         ItemChecklist[]
 
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
@@ -190,16 +280,31 @@ model Convite {
 model Despesa {
   id              Int      @id @default(autoincrement())
   idPropriedade   Int
+  criadoPorId     Int
   descricao       String
   valor           Float
   dataVencimento  DateTime
-  categoria       String?
+  categoria       String
+  observacao      String?
   urlComprovante  String?
   status          StatusPagamento @default(PENDENTE)
+  recorrenciaPaiId Int?
+  // Campos para recorrência
+  recorrente      Boolean  @default(false)
+  frequencia      String?  // Ex: 'DIARIO', 'SEMANAL', 'MENSAL', 'ANUAL'
+  diaRecorrencia  Int?     // Dia do mês para recorrência mensal
 
+  // Campos para multa e juros (opcionais)
+  multaAtraso     Float?   // Valor percentual da multa (ex: 2 para 2%)
+  jurosAtraso     Float?   // Valor percentual dos juros ao mês (ex: 1 para 1%)
+
+  // Relacionamentos
+  
   propriedade     Propriedades       @relation(fields: [idPropriedade], references: [id])
+  recorrenciaPai   Despesa?  @relation("Recorrencia", fields: [recorrenciaPaiId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  despesasFilhas   Despesa[] @relation("Recorrencia")
   pagamentos      PagamentoCotista[]
-
+  criadoPor       User           @relation("CriadoPor", fields: [criadoPorId], references: [id])
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }

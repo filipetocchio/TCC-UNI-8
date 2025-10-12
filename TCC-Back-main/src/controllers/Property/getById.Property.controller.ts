@@ -33,6 +33,14 @@ export const getPropertyById = async (req: Request, res: Response) => {
         enderecoNumero: true,
         enderecoComplemento: true,
         enderecoPontoReferencia: true,
+        duracaoMinimaEstadia: true,
+        duracaoMaximaEstadia: true,
+        horarioCheckin: true,
+        horarioCheckout: true,
+        prazoCancelamentoReserva: true,
+        limiteFeriadosPorCotista: true,     
+        limiteReservasAtivasPorCotista: true, 
+
         fotos: {
           select: { id: true, documento: true },
           where: { excludedAt: null }

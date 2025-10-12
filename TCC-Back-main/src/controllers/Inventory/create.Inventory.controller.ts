@@ -49,7 +49,7 @@ export const createInventoryItem = async (req: Request, res: Response) => {
       },
     });
 
-    // 2. CRIA A NOTIFICAÇÃO APÓS O SUCESSO DA CRIAÇÃO
+    // CRIA A NOTIFICAÇÃO APÓS O SUCESSO DA CRIAÇÃO
     await createNotification({
         idPropriedade: idPropriedade,
         idAutor: userId,

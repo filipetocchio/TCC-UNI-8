@@ -36,6 +36,7 @@ const mockFullUser = {
   excludedAt: null,
 };
 
+// Mock completo do modelo 'Propriedades'.
 const mockProperty = {
     id: 1,
     nomePropriedade: 'Casa de Praia',
@@ -48,6 +49,15 @@ const mockProperty = {
     enderecoNumero: '123',
     enderecoComplemento: null,
     enderecoPontoReferencia: null,
+    // Campos do módulo de calendário
+    duracaoMinimaEstadia: 1,
+    duracaoMaximaEstadia: 7,
+    horarioCheckin: "15:00",
+    horarioCheckout: "11:00",
+    prazoCancelamentoReserva: 14,
+    limiteFeriadosPorCotista: null,
+    limiteReservasAtivasPorCotista: null,
+    // Campos de log
     dataCadastro: new Date(),
     createdAt: new Date(),
     updatedAt: new Date(),

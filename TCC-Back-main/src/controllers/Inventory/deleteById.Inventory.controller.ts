@@ -38,7 +38,7 @@ export const deleteInventoryItemById = async (req: Request, res: Response) => {
       },
     });
 
-    // 2. CRIA A NOTIFICAÇÃO APÓS A EXCLUSÃO
+    // CRIA A NOTIFICAÇÃO APÓS A EXCLUSÃO
     await createNotification({
         idPropriedade: itemExists.idPropriedade,
         idAutor: userId,

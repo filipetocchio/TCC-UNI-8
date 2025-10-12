@@ -1,19 +1,17 @@
 // Todos direitos autorais reservados pelo QOTA.
 
-
 /**
  * @file upload.ts
- * @description Centraliza as configurações do Multer para o tratamento de uploads de arquivos.
- * Utiliza um padrão de fábrica (factory pattern) para criar configurações de armazenamento
- * de forma escalável e reutilizável.
+ * @description Centraliza as configurações do Multer para o tratamento de uploads de arquivos,
+ * oferecendo middlewares para salvar em disco e para processar em memória.
  */
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import { Request } from 'express';
 
 /**
- * @function ensureDirSync
- * @description Função utilitária que verifica se um diretório existe e, caso não, o cria.
+ * Garante que um diretório exista, criando-o de forma recursiva se necessário.
  * @param {string} dirPath - O caminho do diretório a ser verificado/criado.
  */
 const ensureDirSync = (dirPath: string) => {
@@ -23,15 +21,12 @@ const ensureDirSync = (dirPath: string) => {
 };
 
 /**
- * @function createStorage
- * @description Factory function para criar configurações de armazenamento do Multer.
- * Esta abordagem centraliza a lógica de criação de diretório e nomeação de arquivos,
- * tornando o middleware mais limpo e fácil de estender para novos tipos de upload.
+ * Função de fábrica para criar configurações de armazenamento em disco para o Multer.
  * @param {string} destination - A subpasta dentro de 'uploads' onde os arquivos serão salvos.
  * @param {string} filenamePrefix - O prefixo para o nome do arquivo.
- * @returns {multer.StorageEngine} A configuração de armazenamento para o Multer.
+ * @returns {multer.StorageEngine} A configuração de armazenamento em disco.
  */
-const createStorage = (destination: string, filenamePrefix: string): multer.StorageEngine => {
+const createDiskStorage = (destination: string, filenamePrefix: string): multer.StorageEngine => {
   return multer.diskStorage({
     destination: (req, file, cb) => {
       const uploadPath = path.resolve(__dirname, '..', '..', 'uploads', destination);
@@ -46,10 +41,39 @@ const createStorage = (destination: string, filenamePrefix: string): multer.Stor
 };
 
 /**
- * @description Instâncias do Multer exportadas para serem usadas como middleware nas rotas.
- * Cada instância é criada pela factory 'createStorage', garantindo consistência e organização.
+ * Filtro de arquivos para validar os tipos de arquivo permitidos no upload.
  */
-export const uploadProfile = multer({ storage: createStorage('profile', 'user-profile') });
-export const uploadInventory = multer({ storage: createStorage('inventory', 'inventory-item') });
-export const uploadDocument = multer({ storage: createStorage('documents', 'property-document') });
+const fileFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+  // Aceita apenas PDFs e os principais formatos de imagem.
+  if (
+    file.mimetype.startsWith('image/') ||
+    file.mimetype === 'application/pdf'
+  ) {
+    cb(null, true);
+  } else {
+    cb(new Error('Formato de arquivo não suportado. Apenas imagens e PDFs são permitidos.'));
+  }
+};
 
+// --- Middlewares Exportados ---
+
+/**
+ * Middleware para uploads que serão salvos em disco.
+ */
+export const uploadProfile = multer({ storage: createDiskStorage('profile', 'user-profile') });
+export const uploadInventory = multer({ storage: createDiskStorage('inventory', 'inventory-item') });
+export const uploadDocument = multer({ storage: createDiskStorage('documents', 'property-document') });
+export const uploadPropertyPhoto = multer({ storage: createDiskStorage('property', 'property-photo') }); 
+export const uploadInvoiceReceipt = multer({ storage: createDiskStorage('invoices', 'invoice-receipt'), fileFilter });
+
+/**
+ * Middleware para uploads que serão processados em memória.
+ * Ideal para manipulação de arquivos antes do salvamento, como no fluxo de OCR.
+ */
+export const upload = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: fileFilter,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // Limite de 10MB por arquivo
+  },
+});

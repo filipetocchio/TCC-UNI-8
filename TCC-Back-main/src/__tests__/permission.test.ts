@@ -23,8 +23,15 @@ app.use('/api/v1', apiV1Router);
 
 // --- MOCKS DE DADOS COMPLETOS ---
 
+
 const masterUser = { id: 1, email: 'master@qota.com', nomeCompleto: 'Master da Silva' };
 const commonUser = { id: 2, email: 'comum@qota.com', nomeCompleto: 'Comum de Souza' };
+
+const mockProperty = {
+    id: 1,
+    nomePropriedade: 'Casa de Praia',
+    
+};
 
 const mockMasterLink = {
   id: 101,
@@ -126,16 +133,27 @@ describe('Endpoints de Permissões (/api/v1/permission)', () => {
 
   describe('DELETE /unlink/me/:vinculoId', () => {
     it('Deve permitir que um usuário comum se desvincule da propriedade', async () => {
-        mockUser = commonUser;
+        mockUser = commonUser; // Define o usuário logado como o comum.
+
+        // Cria o mock do vínculo que será removido, agora incluindo a propriedade.
+        const mockVinculoComPropriedade = {
+            ...mockCommonLink,
+            propriedade: mockProperty,
+        };
+
         (prismaMock.$transaction as jest.Mock).mockImplementation(async (callback) => {
             const mockTx = {
                 usuariosPropriedades: {
-                    findUnique: jest.fn().mockResolvedValue(mockCommonLink),
+                    // O findUnique agora retorna o objeto completo com a propriedade.
+                    findUnique: jest.fn().mockResolvedValue(mockVinculoComPropriedade),
                     findFirst: jest.fn().mockResolvedValue(mockMasterLink),
-                    count: jest.fn().mockResolvedValue(2),
                     update: jest.fn().mockResolvedValue({}),
                     delete: jest.fn().mockResolvedValue({}),
-                }
+                },
+                // Adiciona o mock para a criação de notificação dentro da transação
+                notificacao: {
+                    create: jest.fn().mockResolvedValue({ id: 1, mensagem: "notificação mock" }),
+                },
             };
             return await callback(mockTx);
         });
@@ -148,4 +166,3 @@ describe('Endpoints de Permissões (/api/v1/permission)', () => {
     });
   });
 });
-

@@ -18,7 +18,8 @@ const app = express();
 app.use(express.json());
 app.use('/api/v1', apiV1Router);
 
-// Mock completo que corresponde ao modelo 'Propriedades' do Prisma.
+// --- MOCKS DE DADOS COMPLETOS ---
+
 const mockProperty = {
     id: 1,
     nomePropriedade: 'Casa de Praia',
@@ -31,13 +32,20 @@ const mockProperty = {
     enderecoNumero: '123',
     enderecoComplemento: null,
     enderecoPontoReferencia: null,
+    duracaoMinimaEstadia: 1,
+    duracaoMaximaEstadia: 7,
+    horarioCheckin: "15:00",
+    horarioCheckout: "11:00",
+    prazoCancelamentoReserva: 14,
+    limiteFeriadosPorCotista: null,
+    limiteReservasAtivasPorCotista: null,
+    // Campos de log
     dataCadastro: new Date(),
     createdAt: new Date(),
     updatedAt: new Date(),
     excludedAt: null,
 };
 
-// Mock completo que corresponde ao modelo 'ItemInventario' do Prisma.
 const mockInventoryItem = {
   id: 1,
   idPropriedade: 1,
@@ -54,7 +62,6 @@ const mockInventoryItem = {
   excludedAt: null,
 };
 
-// Mock completo que corresponde ao modelo 'Notificacao'.
 const mockNotification = {
     id: 1,
     idPropriedade: 1,
@@ -62,7 +69,6 @@ const mockNotification = {
     mensagem: "Notificação de teste",
     createdAt: new Date(),
 };
-
 
 describe('Endpoints de Inventário (/api/v1/inventory)', () => {
 
@@ -97,8 +103,7 @@ describe('Endpoints de Inventário (/api/v1/inventory)', () => {
         .send({ idPropriedade: 999, nome: 'Item Fantasma' });
 
       expect(response.status).toBe(404);
-      
-      expect(response.body.message).toContain('A propriedade informada não foi encontrada ou está inativa.');
+      expect(response.body.message).toContain('propriedade informada não foi encontrada');
     });
   });
 

@@ -27,8 +27,7 @@ export const createNotification = async (params: NotificationParams): Promise<vo
       },
     });
   } catch (error) {
-    // Em um ambiente de produção, um erro aqui deveria ser enviado
-    // para um serviço de logging mais robusto (ex: Sentry, DataDog).
+
     console.error("Falha ao criar notificação:", error);
   }
 };

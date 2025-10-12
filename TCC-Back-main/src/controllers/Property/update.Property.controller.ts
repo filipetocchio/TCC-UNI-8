@@ -9,7 +9,7 @@ const paramsSchema = z.object({
     id: z.string().transform(val => parseInt(val, 10)),
 });
 
-// Schema para o corpo da requisição com a correção no campo valorEstimado.
+// Schema para o corpo da requisição 
 const updatePropertySchema = z.object({
   nomePropriedade: z.string().min(1, { message: 'O nome da propriedade é obrigatório.' }).optional(),
   enderecoCep: z.string().optional().refine(val => !val || /^\d{8}$/.test(val), { message: 'O CEP deve ter 8 dígitos.' }),

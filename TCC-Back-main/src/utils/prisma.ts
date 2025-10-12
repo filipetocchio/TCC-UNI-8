@@ -1,23 +1,27 @@
-/**
- * @file prisma.ts
- * @description Centraliza a inicialização e exportação do cliente Prisma.
- * Inclui funções utilitárias para o tratamento de erros específicos do Prisma.
- */
 // Todos direitos autorais reservados pelo QOTA.
 
-// Importa o cliente e os tipos gerados pelo Prisma
 import { PrismaClient, Prisma } from '@prisma/client';
 
-// Cria uma única instância global do PrismaClient (Singleton Pattern).
-// Isso previne a criação de múltiplas conexões com o banco de dados.
-export const prisma = new PrismaClient();
+// Padrão Singleton para garantir uma única instância do Prisma Client na aplicação.
+// Isso evita a criação de múltiplas conexões com o banco de dados.
+const globalForPrisma = global as unknown as { prisma: PrismaClient | undefined };
+
+export const prisma =
+  globalForPrisma.prisma ??
+  new PrismaClient({
+    log: ['query', 'info', 'warn', 'error'],
+  });
+
+if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.prisma = prisma;
+}
 
 /**
- * @function isPrismaError
- * @description Type guard que verifica se um erro desconhecido é uma instância de um erro
- * conhecido do Prisma Client. Isso permite um tratamento de erros mais seguro e específico.
- * @param {unknown} error - O erro capturado em um bloco catch.
- * @returns {boolean} Retorna 'true' se o erro for do tipo PrismaClientKnownRequestError.
+ * Função de guarda de tipo (type guard) para identificar erros conhecidos do Prisma.
+ * Importa o tipo 'PrismaClientKnownRequestError' diretamente do cliente,
+ * o que é a abordagem mais segura e robusta.
+ * @param error - O erro a ser verificado.
+ * @returns {boolean} - Verdadeiro se o erro for uma instância de PrismaClientKnownRequestError.
  */
 export function isPrismaError(error: unknown): error is Prisma.PrismaClientKnownRequestError {
   return error instanceof Prisma.PrismaClientKnownRequestError;

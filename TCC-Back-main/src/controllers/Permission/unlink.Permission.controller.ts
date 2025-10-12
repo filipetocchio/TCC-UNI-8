@@ -4,85 +4,90 @@ import { prisma } from '../../utils/prisma';
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import { Prisma } from '@prisma/client';
+import { createNotification } from '../../utils/notification.service';
 
 type TransactionClient = Omit<Prisma.TransactionClient, '$commit' | '$rollback'>;
 
-const unlinkSchema = z.object({
+const paramsSchema = z.object({
   vinculoId: z.string().transform(val => parseInt(val, 10)),
 });
 
 /**
- * Permite que um usuário autenticado se desvincule de uma propriedade.
- * A cota do usuário é transferida de volta para o primeiro proprietário master.
+ * Permite que um usuário autenticado se desvincule de uma propriedade,
+ * aplicando regras de negócio específicas para cotistas comuns e masters.
  */
 export const unlinkUserFromProperty = async (req: Request, res: Response) => {
   try {
     if (!req.user) {
       return res.status(401).json({ success: false, message: "Usuário não autenticado." });
     }
-
-    const { vinculoId } = unlinkSchema.parse(req.params);
-    const { id: idUsuarioLogado } = req.user;
+    const { id: idUsuarioLogado, nomeCompleto: nomeUsuario } = req.user;
+    const { vinculoId } = paramsSchema.parse(req.params);
 
     await prisma.$transaction(async (tx: TransactionClient) => {
-      // 1. Busca o vínculo que o usuário deseja remover.
       const vinculoParaRemover = await tx.usuariosPropriedades.findUnique({
         where: { id: vinculoId },
+        include: { propriedade: true }
       });
 
-      if (!vinculoParaRemover) {
-        throw new Error("Vínculo com a propriedade não encontrado.");
-      }
+      if (!vinculoParaRemover) throw new Error("Vínculo com a propriedade não encontrado.");
+      if (vinculoParaRemover.idUsuario !== idUsuarioLogado) throw new Error("Acesso negado. Você só pode remover o seu próprio vínculo.");
 
-      // 2. Validação de segurança: Garante que o usuário logado só pode remover a si mesmo.
-      if (vinculoParaRemover.idUsuario !== idUsuarioLogado) {
-        throw new Error("Acesso negado. Você só pode se desvincular da propriedade.");
-      }
+      const { idPropriedade, porcentagemCota, permissao } = vinculoParaRemover;
 
-      const { idPropriedade, porcentagemCota } = vinculoParaRemover;
-
-      // 3. Regra de negócio: Impede que o último proprietário master abandone a propriedade.
-      if (vinculoParaRemover.permissao === 'proprietario_master') {
-        const masterCount = await tx.usuariosPropriedades.count({
+      if (permissao === 'proprietario_comum') {
+        // --- FLUXO PARA COTISTA COMUM ---
+        const masterReceptor = await tx.usuariosPropriedades.findFirst({
           where: { idPropriedade, permissao: 'proprietario_master' },
+          orderBy: { createdAt: 'asc' },
         });
-        if (masterCount <= 1) {
-          throw new Error("Ação bloqueada. O último proprietário master não pode se desvincular da propriedade.");
+        if (!masterReceptor) throw new Error("Operação falhou: não há um proprietário master para receber a cota.");
+        
+        await tx.usuariosPropriedades.update({
+          where: { id: masterReceptor.id },
+          data: { porcentagemCota: { increment: porcentagemCota } },
+        });
+
+      } else if (permissao === 'proprietario_master') {
+        // --- FLUXO PARA PROPRIETÁRIO MASTER ---
+        const remainingMasters = await tx.usuariosPropriedades.findMany({
+          where: { idPropriedade, permissao: 'proprietario_master', id: { not: vinculoId } },
+          orderBy: { createdAt: 'asc' },
+        });
+
+        if (remainingMasters.length === 0) {
+            const totalMembers = await tx.usuariosPropriedades.count({ where: { idPropriedade } });
+            if (totalMembers > 1) {
+                throw new Error("Ação bloqueada. Você é o único proprietário master. Promova outro cotista a master antes de se desvincular.");
+            } else {
+                throw new Error("Ação bloqueada. Você é o único dono. Para se desfazer da propriedade, utilize a função 'Excluir Propriedade'.");
+            }
+        }
+
+        // Distribui a cota entre os masters restantes
+        const cotaPorMaster = porcentagemCota / remainingMasters.length;
+        for (const master of remainingMasters) {
+          await tx.usuariosPropriedades.update({
+            where: { id: master.id },
+            data: { porcentagemCota: { increment: cotaPorMaster } },
+          });
         }
       }
 
-      // 4. Encontra o primeiro proprietário master da propriedade para receber a cota de volta.
-      const masterReceptor = await tx.usuariosPropriedades.findFirst({
-        where: { idPropriedade, permissao: 'proprietario_master' },
-        orderBy: { createdAt: 'asc' }, // Pega o mais antigo
-      });
+      // Remove definitivamente o vínculo do usuário que está saindo.
+      await tx.usuariosPropriedades.delete({ where: { id: vinculoId } });
 
-      if (!masterReceptor) {
-        throw new Error("Não foi encontrado um proprietário master para receber a cota. Ação cancelada por segurança.");
-      }
-
-      // 5. Devolve a cota para o proprietário master.
-      await tx.usuariosPropriedades.update({
-        where: { id: masterReceptor.id },
-        data: { porcentagemCota: { increment: porcentagemCota } },
-      });
-
-      // 6. Remove definitivamente o vínculo do usuário.
-      await tx.usuariosPropriedades.delete({
-        where: { id: vinculoId },
+      await createNotification({
+        idPropriedade,
+        idAutor: idUsuarioLogado,
+        mensagem: `O usuário '${nomeUsuario}' se desvinculou da propriedade '${vinculoParaRemover.propriedade.nomePropriedade}'.`,
       });
     });
 
-    return res.status(200).json({
-      success: true,
-      message: "Você foi desvinculado da propriedade com sucesso.",
-    });
+    return res.status(200).json({ success: true, message: "Você foi desvinculado da propriedade com sucesso." });
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Erro interno do servidor.";
-    if (error instanceof z.ZodError) {
-      return res.status(400).json({ success: false, message: error.issues[0].message });
-    }
     return res.status(400).json({ success: false, message: errorMessage });
   }
 };

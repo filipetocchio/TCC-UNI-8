@@ -25,7 +25,7 @@ export const getInventoryByProperty = async (req: Request, res: Response) => {
         nome: 'asc',
       },
       include: {
-        // A correção definitiva: filtra as fotos incluídas.
+      
         fotos: {
           where: {
             excludedAt: null, // Traz apenas as fotos que não foram soft-deletadas.
