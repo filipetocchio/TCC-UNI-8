@@ -3,6 +3,19 @@ node_modules/
 npm-debug.log
 yarn-error.log
 
+# Virtual Environment
+venv/
+*/venv/
+.venv/
+*/.venv/
+env/
+*/env/
+.env/
+*/.env/
+ENV/
+*/ENV/
+.env.*
+
 # Arquivos de ambiente - NUNCA ENVIE ISSO!
 .env
 .env.*
@@ -19,3 +32,32 @@ dist-ssr/
 # Arquivos do sistema operacional
 .DS_Store
 Thumbs.db
+
+# ------------------------------------------------------------------
+# Arquivos de desenvolvimento QOTA a serem ignorados (Adicionado Agora)
+# ------------------------------------------------------------------
+
+# Ignora a pasta inteira de controllers do Módulo Calendário no backend
+TCC-Back-main/src/controllers/Calendar/
+
+TCC-Back-main/src/jobs/
+
+TCC-Back-main/src/controllers/Financial/
+
+# Ignora pastas específicas de componentes do Módulo Financeiro no frontend
+TCC-Front_Web/src/components/financial/
+
+# Ignora pastas específicas de componentes do Módulo Calendário no frontend
+TCC-Front_Web/src/components/calendar/
+
+# Ignora arquivos específicos de rotas e páginas que você está modificando
+TCC-Front_Web/src/pages/FinancialDashboard.jsx
+TCC-Front_Web/src/pages/CalendarPage.jsx
+TCC-Front_Web/src/pages/ReservationDetailsPage.jsx
+TCC-Front_Web/src/pages/PropertyDetails.jsx
+TCC-Front_Web/src/App.jsx
+TCC-Front_Web/src/routes/paths.js
+TCC-Back-main/src/routes/calendar.route.ts
+TCC-Back-main/src/routes/financial.route.ts
+TCC-Back-main/src/routes/routes.ts
+
