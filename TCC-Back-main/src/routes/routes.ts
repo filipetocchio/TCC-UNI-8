@@ -20,7 +20,9 @@ import { inventory } from './inventory.route';
 import { inventoryPhoto } from './inventoryPhoto.route';
 import { invite } from './invite.route';
 import { validation } from './validation.route';
+import { financial } from './financial.route';
 import { notification } from './notification.route';
+import { calendar } from './calendar.route'; 
 
 // Inicializa o roteador principal para a v1 da API.
 export const apiV1Router = Router();
@@ -36,4 +38,6 @@ apiV1Router.use("/inventory", inventory);
 apiV1Router.use("/inventoryPhoto", inventoryPhoto);
 apiV1Router.use("/invite", invite);
 apiV1Router.use("/validation", validation);
+apiV1Router.use("/financial", financial);
 apiV1Router.use("/notification", notification);
+apiV1Router.use("/calendar", calendar); 
