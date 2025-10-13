@@ -5,7 +5,7 @@ import { Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import { z } from "zod";
-import { Prisma } from '@prisma/client'; // Importa os tipos do Prisma
+import { Prisma } from '@prisma/client'; 
 
 const TERMOS_VERSAO_ATUAL = "1.0 - 2025-08-25";
 
@@ -115,8 +115,6 @@ export const registerAuth = async (req: Request, res: Response) => {
     }
     
     // Trata erros conhecidos do Prisma, como violação de constraint única.
-    // É necessário verificar se o 'error' é uma instância do erro do Prisma
-    // para acessar suas propriedades de forma segura.
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
       if (error.code === 'P2002') {
           return res.status(409).json({

@@ -18,7 +18,6 @@ app.use(express.json());
 app.use('/api/v1', apiV1Router);
 
 // --- MOCKS DE DADOS COMPLETOS ---
-// Estes objetos agora correspondem 100% à estrutura do schema.prisma.
 
 const mockFullUser = {
   id: 1,
@@ -49,7 +48,6 @@ const mockProperty = {
     enderecoNumero: '123',
     enderecoComplemento: null,
     enderecoPontoReferencia: null,
-    // Campos do módulo de calendário
     duracaoMinimaEstadia: 1,
     duracaoMaximaEstadia: 7,
     horarioCheckin: "15:00",

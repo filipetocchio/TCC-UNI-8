@@ -55,7 +55,7 @@ export const updateUser = async (req: Request, res: Response) => {
       where: { id: userId },
       data: dataToUpdate,
       include: {
-        userPhoto: true, // Garante que a foto atualizada seja incluída.
+        userPhoto: true, 
       },
     });
 

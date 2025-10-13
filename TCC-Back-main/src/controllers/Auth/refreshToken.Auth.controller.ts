@@ -28,7 +28,6 @@ export const refreshTokenAuth = async (req: Request, res: Response) => {
     }
 
     // Busca o usuário que possui o refresh token, incluindo os dados da foto de perfil.
-    // Esta inclusão é essencial para garantir que o frontend receba o objeto completo do usuário.
     const user = await prisma.user.findFirst({
       where: { refreshToken },
       include: {
