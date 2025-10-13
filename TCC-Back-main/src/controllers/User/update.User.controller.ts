@@ -55,22 +55,30 @@ export const updateUser = async (req: Request, res: Response) => {
       where: { id: userId },
       data: dataToUpdate,
       include: {
-        userPhoto: true,
+        userPhoto: true, // Garante que a foto atualizada seja incluída.
       },
     });
 
-    return res.status(200).json({
-      success: true,
-      message: "Usuário atualizado com sucesso.",
-      data: {
+  
+    // com a foto de perfil aninhada dentro de 'userPhoto'.
+    const responseData = {
         id: updated.id,
         email: updated.email,
         nomeCompleto: updated.nomeCompleto,
         telefone: updated.telefone,
         cpf: updated.cpf,
-        urlFotoPerfil: updated.userPhoto?.url || null,
-      },
+        // Mantém a estrutura aninhada, que é o que a Sidebar e o resto da aplicação esperam.
+        userPhoto: updated.userPhoto 
+          ? { url: `${req.protocol}://${req.get('host')}${updated.userPhoto.url}` } 
+          : null,
+    };
+
+    return res.status(200).json({
+      success: true,
+      message: "Usuário atualizado com sucesso.",
+      data: responseData,
     });
+
   } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({
@@ -78,7 +86,7 @@ export const updateUser = async (req: Request, res: Response) => {
         message: error.issues[0].message,
       });
     }
-    console.error(error);
+    console.error("Erro ao atualizar usuário:", error);
     return res.status(500).json({
       success: false,
       message: "Erro interno do servidor.",

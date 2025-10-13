@@ -1,106 +1,95 @@
+// Todos direitos autorais reservados pelo QOTA.
+
 import { prisma } from '../../utils/prisma';
 import jwt from 'jsonwebtoken';
 import { Request, Response } from 'express';
-import dotenv from 'dotenv';
 
-dotenv.config();
+interface RefreshTokenPayload {
+  userId: number;
+  email: string;
+}
 
-const refreshTokenAuth = async (req: Request, res: Response) => {
+/**
+ * Renova o token de acesso de um usuário a partir de um refresh token válido.
+ * Este processo revalida a sessão do usuário e retorna um novo access token,
+ * juntamente com os dados completos do perfil do usuário para sincronização do frontend.
+ *
+ * @param req - O objeto de requisição do Express, contendo o cookie 'jwt'.
+ * @param res - O objeto de resposta do Express.
+ */
+export const refreshTokenAuth = async (req: Request, res: Response) => {
   try {
-    const accessToken = req.cookies?.accessToken || req.cookies?.jwt;
-
-    if (!accessToken) {
-      return res.status(401).json({
-        code: 401,
-        success: false,
-        error: 'Token de acesso não encontrado nos cookies.',
+    const refreshToken = req.cookies?.jwt;
+    if (!refreshToken) {
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Acesso não autorizado. Sessão inválida.' 
       });
     }
 
-    const decodedToken = jwt.verify(accessToken, process.env.ACCESS_TOKEN_SECRET!) as {
-      userId: string | number;
-      email: string;
-    };
-
-    const user = await prisma.user.findUnique({
-      where: { 
-        id: typeof decodedToken.userId === 'string' 
-            ? Number(decodedToken.userId) 
-            : decodedToken.userId 
-      },
-      select: {
-        id: true,
-        email: true,
-        nomeCompleto: true,
-        refreshToken: true,
+    // Busca o usuário que possui o refresh token, incluindo os dados da foto de perfil.
+    // Esta inclusão é essencial para garantir que o frontend receba o objeto completo do usuário.
+    const user = await prisma.user.findFirst({
+      where: { refreshToken },
+      include: {
+        userPhoto: true,
       },
     });
 
     if (!user) {
-      return res.status(401).json({
-        code: 401,
-        success: false,
-        error: 'Usuário não encontrado no banco de dados.',
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Acesso proibido. Token inválido.' 
       });
     }
 
-    const newAccessToken = jwt.sign(
-      { userId: user.id, email: user.email },
-      process.env.ACCESS_TOKEN_SECRET!,
-      { expiresIn: '60m' }
+    jwt.verify(
+      refreshToken,
+      process.env.REFRESH_TOKEN_SECRET as string,
+      (err: any, decoded: any) => {
+        const decodedPayload = decoded as RefreshTokenPayload;
+
+        if (err || user.id !== decodedPayload.userId) {
+          return res.status(403).json({ 
+            success: false, 
+            message: 'Acesso proibido. Falha na verificação do token.' 
+          });
+        }
+        
+        const accessToken = jwt.sign(
+          {
+            userId: user.id,
+            email: user.email,
+            nomeCompleto: user.nomeCompleto,
+          },
+          process.env.ACCESS_TOKEN_SECRET as string,
+          { expiresIn: '6h' }
+        );
+
+        // Retorna o novo access token e o objeto completo do usuário, padronizado
+        // com a resposta do endpoint de login para garantir consistência no frontend.
+        return res.status(200).json({
+          success: true,
+          message: 'Sessão restaurada com sucesso.',
+          data: {
+            accessToken,
+            id: user.id,
+            email: user.email,
+            nomeCompleto: user.nomeCompleto,
+            cpf: user.cpf,
+            telefone: user.telefone,
+            userPhoto: user.userPhoto
+              ? { url: `${req.protocol}://${req.get('host')}${user.userPhoto.url}` }
+              : null,
+          },
+        });
+      }
     );
-
-    const newRefreshToken = jwt.sign(
-      { userId: user.id, email: user.email },
-      process.env.REFRESH_TOKEN_SECRET!,
-      { expiresIn: '7d' }
-    );
-
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { refreshToken: newRefreshToken },
-    });
-
-    res.cookie('accessToken', newAccessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 60 * 60 * 1000,
-    });
-
-    res.cookie('refreshToken', newRefreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
-
-    return res.status(200).json({
-      code: 200,
-      success: true,
-      data: {
-        id: user.id,
-        email: user.email,
-        nomeCompleto: user.nomeCompleto,
-      },
-    });
   } catch (error) {
-    console.error('Erro ao renovar token:', error);
-
-    if (error instanceof jwt.JsonWebTokenError) {
-      return res.status(401).json({
-        code: 401,
-        success: false,
-        error: 'Token inválido ou expirado. Faça login novamente.',
-      });
-    }
-
+    console.error('Falha ao renovar o token:', error);
     return res.status(500).json({
-      code: 500,
       success: false,
-      error: 'Erro interno no servidor.',
+      message: 'Ocorreu um erro interno no servidor.',
     });
   }
 };
-
-export { refreshTokenAuth };

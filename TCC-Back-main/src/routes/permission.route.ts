@@ -16,6 +16,7 @@ import { updatePermission } from '../controllers/Permission/update.Permission.co
 import { updateCotaPermission } from '../controllers/Permission/updateCota.Permission.controller';
 import { unlinkUserFromProperty } from '../controllers/Permission/unlink.Permission.controller'; 
 import { unlinkMemberFromProperty } from '../controllers/Permission/unlinkMember.Permission.controller';
+import { getPropertiesByUser } from '../controllers/Permission/getPropertiesByUser.Permission.controller';
 
 export const permission = express.Router();
 /**
@@ -39,11 +40,18 @@ permission.delete('/unlink/member/:vinculoId', protect, unlinkMemberFromProperty
 permission.get('/', protect, getUsuariosPropriedades);
 
 /**
- * @route   GET /api/v1/permission/:id
- * @desc    Lista todos os membros (vínculos) de uma propriedade específica.
+ * @route   GET /api/v1/permission/user/:id/properties
+ * @desc    Lista todas as propriedades associadas a um usuário específico.
  * @access  Privado
  */
-permission.get('/:id', protect, getUsersByPropertyId);
+permission.get('/user/:id/properties', protect, getPropertiesByUser);
+
+/**
+ * @route   GET /api/v1/permission/user/:id
+ * @desc    Lista todas as propriedades associadas a um usuário específico.
+ * @access  Privado
+ */
+permission.get('/user/:id', protect, getPropertiesByUser);
 
 /**
  * @route   PUT /api/v1/permission/cota/:vinculoId
