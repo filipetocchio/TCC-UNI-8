@@ -1,166 +1,164 @@
 // Todos direitos autorais reservados pelo QOTA.
 
+/**
+ * Suite de Testes para os Endpoints de Convites
+ *
+ * Descrição:
+ * Este arquivo contém os testes de integração para as rotas de gerenciamento de
+ * convites. O objetivo é validar o comportamento de criação, verificação, aceite
+ * e listagem, garantindo que as regras de negócio do novo fluxo de frações
+ * e as validações de segurança sejam aplicadas corretamente.
+ */
 import request from 'supertest';
 import express, { Request, Response, NextFunction } from 'express';
 import { apiV1Router } from '../routes/routes';
 import { prismaMock } from '../../jest.setup';
+import { protect } from '../middleware/authMiddleware';
+import { createNotification } from '../utils/notification.service';
 import { StatusConvite } from '@prisma/client';
 
-// Mock dinâmico do middleware de autenticação.
-let mockUser: { id: number; email: string; nomeCompleto: string } | undefined = undefined;
+// --- Mocks das Dependências ---
 jest.mock('../middleware/authMiddleware', () => ({
-  protect: (req: Request, res: Response, next: NextFunction) => {
-    req.user = mockUser;
-    if (!req.user) {
-      return res.status(401).json({ success: false, message: "Usuário não autenticado." });
-    }
-    next();
-  },
+  protect: jest.fn((req: Request, res: Response, next: NextFunction) => next()),
 }));
+const mockedProtect = protect as jest.Mock;
 
+jest.mock('../utils/notification.service');
+const mockedCreateNotification = createNotification as jest.Mock;
+
+// --- Configuração da Aplicação de Teste ---
 const app = express();
 app.use(express.json());
 app.use('/api/v1', apiV1Router);
 
-// --- MOCKS DE DADOS COMPLETOS ---
-
+// --- Dados Mockados para os Testes ---
 const masterUser = { id: 1, email: 'master@qota.com', nomeCompleto: 'Master da Silva' };
 const commonUser = { id: 2, email: 'comum@qota.com', nomeCompleto: 'Comum de Souza' };
 const newInvitedUser = { id: 3, email: 'novo.convidado@qota.com', nomeCompleto: 'Novo Convidado' };
 
-const mockProperty = { id: 1, nomePropriedade: 'Casa na Praia' };
+const mockProperty = { id: 1, totalFracoes: 52, diariasPorFracao: 7.019, nomePropriedade: 'Casa de Praia' };
 
-// Mock completo para o modelo 'UsuariosPropriedades'.
 const mockMasterLink = {
-  id: 101,
-  idUsuario: masterUser.id,
-  idPropriedade: mockProperty.id,
-  permissao: 'proprietario_master',
-  porcentagemCota: 75,
-  dataVinculo: new Date(),
-  createdAt: new Date(),
-  updatedAt: new Date(),
-  excludedAt: null,
+  id: 101, idUsuario: masterUser.id, idPropriedade: 1,
+  permissao: 'proprietario_master', numeroDeFracoes: 40,
+  propriedade: mockProperty,
 };
 
-// Mock completo para o modelo 'Convite'.
 const mockValidInvite = {
-    id: 1,
-    token: 'valid-token',
-    emailConvidado: newInvitedUser.email,
-    idPropriedade: mockProperty.id,
-    idConvidadoPor: masterUser.id,
-    permissao: 'proprietario_comum',
-    porcentagemCota: 25.5,
-    usuarioJaExiste: true,
-    dataExpiracao: new Date(Date.now() + 86400000), // Válido por mais 1 dia
-    status: StatusConvite.PENDENTE,
-    aceitoEm: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
+  id: 1, token: 'valid-token', emailConvidado: newInvitedUser.email,
+  idPropriedade: 1, idConvidadoPor: masterUser.id, permissao: 'proprietario_comum',
+  numeroDeFracoes: 2, status: StatusConvite.PENDENTE,
+  dataExpiracao: new Date(Date.now() + 86400000), propriedade: mockProperty,
 };
 
-
+// --- Suite Principal de Testes de Convites ---
 describe('Endpoints de Convites (/api/v1/invite)', () => {
-
   beforeEach(() => {
     jest.clearAllMocks();
+    mockedProtect.mockImplementation((req: Request, res: Response, next: NextFunction) => {
+      req.user = masterUser;
+      next();
+    });
+    mockedCreateNotification.mockResolvedValue(undefined);
   });
 
+  // Testes para o endpoint de criação de convites.
   describe('POST / (Criar Convite)', () => {
-    it('Deve permitir que um proprietário master crie um convite com sucesso', async () => {
-      mockUser = masterUser;
-      prismaMock.usuariosPropriedades.findFirst.mockResolvedValue(mockMasterLink);
+    it('Deve permitir que um master crie um convite com sucesso', async () => {
+      // Arrange
+      prismaMock.usuariosPropriedades.findFirst.mockResolvedValue(mockMasterLink as any);
+      prismaMock.usuariosPropriedades.findMany.mockResolvedValue([mockMasterLink] as any);
       prismaMock.user.findUnique.mockResolvedValue(null);
-      prismaMock.convite.create.mockResolvedValue(mockValidInvite);
+      prismaMock.convite.create.mockResolvedValue(mockValidInvite as any);
 
-      const response = await request(app)
-        .post('/api/v1/invite')
-        .send({
-          emailConvidado: 'novo@qota.com',
-          idPropriedade: 1,
-          permissao: 'proprietario_comum',
-          porcentagemCota: 20,
-        });
+      // Act
+      const response = await request(app).post('/api/v1/invite').send({
+        emailConvidado: 'novo@qota.com', idPropriedade: 1, permissao: 'proprietario_comum', numeroDeFracoes: 2,
+      });
 
+      // Assert
       expect(response.status).toBe(201);
       expect(response.body.data).toHaveProperty('linkConvite');
+      expect(mockedCreateNotification).toHaveBeenCalled();
     });
 
-    it('Deve impedir que um usuário comum crie um convite (erro 403)', async () => {
-      mockUser = commonUser;
-      prismaMock.usuariosPropriedades.findFirst.mockResolvedValue(null);
-
-      const response = await request(app)
-        .post('/api/v1/invite')
-        .send({
-          emailConvidado: 'outro@qota.com',
-          idPropriedade: 1,
-          permissao: 'proprietario_comum',
-          porcentagemCota: 10,
+    it('Deve impedir que um cotista comum crie um convite', async () => {
+        // Arrange
+        mockedProtect.mockImplementation((req: Request, res: Response, next: NextFunction) => {
+            req.user = commonUser;
+            next();
         });
+        prismaMock.usuariosPropriedades.findFirst.mockResolvedValue(null);
 
-      expect(response.status).toBe(403);
-      expect(response.body.message).toContain('Acesso negado');
+        // Act
+        const response = await request(app).post('/api/v1/invite').send({
+            emailConvidado: 'outro@qota.com', idPropriedade: 1, permissao: 'proprietario_comum', numeroDeFracoes: 1,
+        });
+  
+        // Assert
+        expect(response.status).toBe(403);
+        expect(response.body.message).toContain('Acesso negado');
     });
-
-    it('Deve impedir que um master ceda mais cota do que possui (erro 400)', async () => {
-        mockUser = masterUser;
-        prismaMock.usuariosPropriedades.findFirst.mockResolvedValue(mockMasterLink); // Master tem 75%
-  
-        const response = await request(app)
-          .post('/api/v1/invite')
-          .send({
-            emailConvidado: 'novo@qota.com',
-            idPropriedade: 1,
-            permissao: 'proprietario_comum',
-            porcentagemCota: 80, // Tentando ceder 80%
-          });
-  
-        expect(response.status).toBe(400);
-        expect(response.body.message).toContain('não pode ceder 80% pois possui apenas 75%');
-      });
   });
 
+  // Testes para o endpoint de verificação de token.
   describe('GET /verify/:token', () => {
-    it('Deve retornar os detalhes de um convite válido', async () => {
-      const mockInviteForVerify = {
-        ...mockValidInvite,
-        propriedade: { nomePropriedade: 'Casa de Praia' },
-        convidadoPor: { nomeCompleto: 'Master da Silva' },
-      };
-      prismaMock.convite.findUnique.mockResolvedValue(mockInviteForVerify);
+    it('Deve retornar os detalhes de um convite válido, incluindo o número de frações', async () => {
+      // Arrange
+      const mockInviteForVerify = { ...mockValidInvite, convidadoPor: { nomeCompleto: 'Master da Silva' } };
+      prismaMock.convite.findUnique.mockResolvedValue(mockInviteForVerify as any);
 
+      // Act
       const response = await request(app).get('/api/v1/invite/verify/valid-token');
 
+      // Assert
       expect(response.status).toBe(200);
       expect(response.body.data.propriedade).toBe('Casa de Praia');
+      expect(response.body.data.numeroDeFracoes).toBe(2);
+    });
+  });
+  
+  // Testes para o endpoint de aceitação de convite.
+  describe('POST /accept/:token', () => {
+    it('Deve permitir que um usuário aceite um convite válido', async () => {
+      // Arrange
+      mockedProtect.mockImplementation((req: Request, res: Response, next: NextFunction) => {
+        req.user = newInvitedUser;
+        next();
+      });
+
+      (prismaMock.$transaction as jest.Mock).mockImplementation(async (callback) => {
+        const mockTx = {
+          convite: { findFirst: jest.fn().mockResolvedValue(mockValidInvite), update: jest.fn() },
+          usuariosPropriedades: { findFirst: jest.fn().mockResolvedValue(mockMasterLink), update: jest.fn(), create: jest.fn() },
+        };
+        return await callback(mockTx);
+      });
+      
+      // Act
+      const response = await request(app).post('/api/v1/invite/accept/valid-token');
+
+      // Assert
+      expect(response.status).toBe(200);
+      expect(response.body.message).toBe('Convite aceito com sucesso! A propriedade agora faz parte da sua conta.');
+      expect(mockedCreateNotification).toHaveBeenCalled();
     });
   });
 
-  describe('POST /accept/:token', () => {
-    it('Deve permitir que um usuário aceite um convite válido', async () => {
-        mockUser = newInvitedUser;
-        (prismaMock.$transaction as jest.Mock).mockImplementation(async (callback) => {
-            const mockTx = {
-                convite: { 
-                    findFirst: jest.fn().mockResolvedValue(mockValidInvite),
-                    update: jest.fn().mockResolvedValue({})
-                },
-                usuariosPropriedades: {
-                    findFirst: jest.fn().mockResolvedValue(mockMasterLink),
-                    update: jest.fn().mockResolvedValue({}),
-                    create: jest.fn().mockResolvedValue({ id: 102, idUsuario: newInvitedUser.id }),
-                },
-            };
-            return await callback(mockTx);
-        });
+  // Testes para o endpoint de listagem de convites pendentes.
+  describe('GET /property/:propertyId/pending', () => {
+    it('Deve retornar uma lista de convites pendentes se o usuário for master', async () => {
+        // Arrange
+        prismaMock.usuariosPropriedades.findFirst.mockResolvedValue(mockMasterLink as any);
+        (prismaMock.$transaction as jest.Mock).mockResolvedValue([[mockValidInvite], 1]);
 
-        const response = await request(app).post('/api/v1/invite/accept/valid-token');
+        // Act
+        const response = await request(app).get('/api/v1/invite/property/1/pending');
 
+        // Assert
         expect(response.status).toBe(200);
-        expect(response.body.message).toContain('Convite aceito!');
+        expect(response.body.data).toHaveLength(1);
+        expect(response.body.data[0].emailConvidado).toBe(newInvitedUser.email);
     });
   });
 });
-

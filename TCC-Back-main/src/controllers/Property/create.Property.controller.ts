@@ -1,16 +1,32 @@
 // Todos direitos autorais reservados pelo QOTA.
 
+/**
+ * Controller para Criação de Novas Propriedades
+ *
+ * Descrição:
+ * Este arquivo contém a lógica de negócio para o endpoint de criação de novas
+ * propriedades. O processo é seguro e transacional.
+ *
+ * O controlador executa as seguintes ações em uma única operação atômica:
+ * 1.  Cria o registro da nova propriedade, calculando o direito a diárias por fração.
+ * 2.  Cria um vínculo que designa o usuário autenticado como o "proprietario_master",
+ * atribuindo a ele todas as frações iniciais e o saldo total de diárias para o ano.
+ * 3.  Dispara uma notificação em segundo plano sobre a criação da propriedade.
+ */
 import { prisma } from '../../utils/prisma';
 import { Request, Response } from 'express';
 import { z } from 'zod';
+import { createNotification } from '../../utils/notification.service';
+import { logEvents } from '../../middleware/logEvents';
 
-/**
- * Schema para validação dos dados de entrada para criação de uma nova propriedade.
- */
+// Define o nome do arquivo de log para este controlador.
+const LOG_FILE = 'property.log';
+
+// Schema para validar os dados de entrada da criação da propriedade.
 const createPropertySchema = z.object({
-  nomePropriedade: z.string().min(1, { message: "O nome da propriedade é obrigatório." }).max(100),
+  nomePropriedade: z.string().min(1, { message: 'O nome da propriedade é obrigatório.' }).max(100),
   tipo: z.enum(['Casa', 'Apartamento', 'Chacara', 'Lote', 'Outros']),
-  userId: z.number().int().positive({ message: "A ID do usuário criador é inválida." }),
+  totalFracoes: z.number().int().min(1).max(52).optional().default(52),
   enderecoCep: z.string().optional(),
   enderecoCidade: z.string().optional(),
   enderecoBairro: z.string().optional(),
@@ -19,39 +35,55 @@ const createPropertySchema = z.object({
   enderecoComplemento: z.string().optional(),
   enderecoPontoReferencia: z.string().optional(),
   valorEstimado: z.number().positive().optional().nullable(),
- 
 });
 
 /**
- * Controller para criar uma nova propriedade e vincular o usuário criador
- * como proprietário master, atribuindo a ele 100% da cota da propriedade.
+ * Processa a criação de uma nova propriedade e o vínculo com seu criador.
  */
 export const createProperty = async (req: Request, res: Response) => {
   try {
-    const { userId, ...propertyData } = createPropertySchema.parse(req.body);
-
-    const user = await prisma.user.findUnique({ where: { id: userId } });
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'Usuário criador não encontrado.' });
+    // --- 1. Autenticação e Validação de Entrada ---
+    if (!req.user) {
+      return res.status(401).json({ success: false, message: 'Usuário não autenticado.' });
     }
+    const { id: userId, nomeCompleto: userName } = req.user;
+    const { totalFracoes, ...propertyData } = createPropertySchema.parse(req.body);
 
-    // A criação da propriedade e do vínculo do usuário ocorre de forma aninhada
-    // para garantir a consistência e atomicidade da operação.
+    // --- 2. Preparação dos Dados para o Novo Fluxo ---
+    // Calcula o número de dias a que cada fração da propriedade dá direito.
+    const diariasPorFracao = 365 / totalFracoes;
+
+    // --- 3. Criação da Propriedade e Vínculo do Proprietário (Transacional) ---
+    // A propriedade e o vínculo são criados em uma única operação aninhada.
     const newProperty = await prisma.propriedades.create({
       data: {
         ...propertyData,
+        totalFracoes,
+        diariasPorFracao,
         usuarios: {
           create: [
             {
               idUsuario: userId,
               permissao: 'proprietario_master',
-              porcentagemCota: 100,
+              numeroDeFracoes: totalFracoes, // O criador recebe todas as frações inicialmente.
+              saldoDiariasAtual: 365,       // Com todas as frações, o criador tem direito a todos os dias.
             },
           ],
         },
       },
     });
 
+    // --- 4. Disparo da Notificação (Desempenho) ---
+    // A notificação é disparada sem 'await' para não bloquear a resposta ao usuário.
+    createNotification({
+      idPropriedade: newProperty.id,
+      idAutor: userId,
+      mensagem: `A propriedade '${newProperty.nomePropriedade}' foi criada por '${userName}'.`,
+    }).catch(err => {
+      logEvents(`Falha ao criar notificação para nova propriedade: ${err.message}`, LOG_FILE);
+    });
+
+    // --- 5. Envio da Resposta de Sucesso ---
     return res.status(201).json({
       success: true,
       message: `Propriedade "${newProperty.nomePropriedade}" criada com sucesso.`,
@@ -66,9 +98,13 @@ export const createProperty = async (req: Request, res: Response) => {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ success: false, message: error.issues[0].message });
     }
-    
-    // Para erros inesperados, retorna uma mensagem genérica por segurança.
-    console.error("Erro não tratado ao criar propriedade:", error);
-    return res.status(500).json({ success: false, message: 'Erro interno do servidor ao criar a propriedade.' });
+
+    const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+    logEvents(`ERRO ao criar propriedade: ${errorMessage}\n${error instanceof Error ? error.stack : ''}`, LOG_FILE);
+
+    return res.status(500).json({
+      success: false,
+      message: 'Ocorreu um erro inesperado no servidor ao criar a propriedade.',
+    });
   }
 };

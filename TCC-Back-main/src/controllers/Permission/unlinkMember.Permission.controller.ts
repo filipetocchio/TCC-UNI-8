@@ -1,80 +1,98 @@
 // Todos direitos autorais reservados pelo QOTA.
 
+/**
+ * Controller para Desvincular um Membro por um Proprietário Master
+ *
+ * Descrição:
+ * Este arquivo contém a lógica para o endpoint que permite a um "proprietario_master"
+ * remover outro membro de uma propriedade. Esta é uma ação administrativa crítica,
+ * executada de forma transacional para garantir a consistência dos dados.
+ *
+ * O processo é responsável por:
+ * 1.  Validar que o requisitante é um proprietário master da propriedade em questão.
+ * 2.  Impedir que um master remova a si mesmo por esta rota.
+ * 3.  Transferir o número de frações do membro removido para o master que executou a ação.
+ * 4.  Recalcular o saldo de diárias do master com base em seu novo total de frações.
+ * 5.  Remover permanentemente o vínculo do membro com a propriedade.
+ * 6.  Disparar uma notificação em segundo plano para registrar o evento.
+ */
 import { prisma } from '../../utils/prisma';
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import { Prisma } from '@prisma/client';
 import { createNotification } from '../../utils/notification.service';
+import { logEvents } from '../../middleware/logEvents';
 
-// Definição de tipo para o cliente de transação do Prisma, visando a legibilidade do código.
+// Define o nome do arquivo de log e o tipo para o cliente de transação.
+const LOG_FILE = 'permission.log';
 type TransactionClient = Omit<Prisma.TransactionClient, '$commit' | '$rollback'>;
 
-// Schema para validação e conversão do ID do vínculo recebido via parâmetros da rota.
+// Schema para validar o ID do vínculo nos parâmetros da rota.
 const paramsSchema = z.object({
-  vinculoId: z.string().transform(val => parseInt(val, 10)),
+  vinculoId: z.string().transform((val) => parseInt(val, 10)),
 });
 
 /**
- * Controller para desvincular um membro de uma propriedade.
- * Apenas um 'proprietario_master' pode executar esta ação. A cota do membro removido
- * é automaticamente transferida para o master que realiza a operação.
+ * Processa a remoção de um membro de uma propriedade por um proprietário master.
  */
 export const unlinkMemberFromProperty = async (req: Request, res: Response) => {
   try {
-    // Validação de autenticação do usuário requisitante.
+    // --- 1. Autenticação e Validação de Entrada ---
     if (!req.user) {
-      return res.status(401).json({ success: false, message: "Usuário não autenticado." });
+      return res.status(401).json({ success: false, message: 'Usuário não autenticado.' });
     }
-
-    // Extração de dados do usuário autenticado a partir do token.
     const { id: idMasterRequisitante, nomeCompleto: nomeMaster } = req.user;
-    // Validação e extração do ID do vínculo a partir dos parâmetros da requisição.
     const { vinculoId } = paramsSchema.parse(req.params);
 
-    // Variável para armazenar os dados da notificação, a ser enviada após a transação.
     let notificationPayload;
 
-    // Início da transação para garantir a atomicidade das operações críticas no banco de dados.
+    // --- 2. Execução da Lógica Transacional ---
     await prisma.$transaction(async (tx: TransactionClient) => {
-      // Etapa 1: Localiza o registro do vínculo que será removido, incluindo dados do usuário associado.
+      // 2.1. Busca dos Vínculos e da Propriedade
       const vinculoParaRemover = await tx.usuariosPropriedades.findUnique({
         where: { id: vinculoId },
-        include: { usuario: true }
+        include: { usuario: true },
       });
+      if (!vinculoParaRemover) throw new Error('O membro que você está tentando remover não foi encontrado.');
+      
+      const { idPropriedade, numeroDeFracoes, usuario: usuarioRemovido } = vinculoParaRemover;
 
-      // Validação da existência do vínculo no banco de dados.
-      if (!vinculoParaRemover) {
-        throw new Error("O membro que você está tentando remover não foi encontrado.");
-      }
-      const { idPropriedade, porcentagemCota, usuario: usuarioRemovido } = vinculoParaRemover;
-
-      // Etapa 2: Confirma que o usuário requisitante possui permissão 'proprietario_master' na propriedade.
       const vinculoMaster = await tx.usuariosPropriedades.findFirst({
         where: { idUsuario: idMasterRequisitante, idPropriedade, permissao: 'proprietario_master' },
+        include: { propriedade: true },
       });
+      if (!vinculoMaster) throw new Error('Acesso negado. Apenas proprietários master podem remover membros.');
 
-      // Validação de permissão. Apenas um master pode desvincular outros membros.
-      if (!vinculoMaster) {
-        throw new Error("Acesso negado. Apenas proprietários master podem remover membros.");
-      }
-
-      // Etapa 3: Regra de negócio que impede o master de se auto-remover por esta rota específica.
       if (vinculoParaRemover.idUsuario === idMasterRequisitante) {
-        throw new Error("Você não pode remover a si mesmo. Use a função 'Desvincular da Propriedade' na página de detalhes.");
+        throw new Error("Você não pode remover a si mesmo. Use a função 'Sair da Propriedade'.");
       }
+
+      // 2.2. Transferência de Frações e Recálculo de Saldo de Diárias
+      const novoNumeroDeFracoesMaster = vinculoMaster.numeroDeFracoes + numeroDeFracoes;
       
-      // Etapa 4: Transfere a cota do membro removido para o master, incrementando seu valor.
+      // Lógica pro-rata para recalcular o saldo do master com base nas novas frações.
+      const hoje = new Date();
+      const inicioDoAno = new Date(hoje.getFullYear(), 0, 1);
+      const fimDoAno = new Date(hoje.getFullYear(), 11, 31);
+      const diasTotaisNoAno = (fimDoAno.getTime() - inicioDoAno.getTime()) / (1000 * 3600 * 24) + 1;
+      const diasRestantesNoAno = (fimDoAno.getTime() - hoje.getTime()) / (1000 * 3600 * 24) + 1;
+      const proporcaoAnoRestante = diasRestantesNoAno > 0 ? diasRestantesNoAno / diasTotaisNoAno : 0;
+
+      const saldoAnualTotalMaster = novoNumeroDeFracoesMaster * vinculoMaster.propriedade.diariasPorFracao;
+      const novoSaldoProRataMaster = saldoAnualTotalMaster * proporcaoAnoRestante;
+
       await tx.usuariosPropriedades.update({
         where: { id: vinculoMaster.id },
-        data: { porcentagemCota: { increment: porcentagemCota } },
+        data: { 
+            numeroDeFracoes: { increment: numeroDeFracoes },
+            saldoDiariasAtual: novoSaldoProRataMaster
+        },
       });
 
-      // Etapa 5: Exclui permanentemente o registro do vínculo do membro com a propriedade.
-      await tx.usuariosPropriedades.delete({
-        where: { id: vinculoId },
-      });
+      // 2.3. Remoção do Vínculo do Membro
+      await tx.usuariosPropriedades.delete({ where: { id: vinculoId } });
 
-      // Monta o payload para a notificação, que será processada fora do escopo transacional.
+      // 2.4. Preparação da Notificação
       notificationPayload = {
         idPropriedade,
         idAutor: idMasterRequisitante,
@@ -82,23 +100,32 @@ export const unlinkMemberFromProperty = async (req: Request, res: Response) => {
       };
     });
 
-    // Etapa 6: Envia a notificação após o sucesso da transação, para não impactar seu tempo de execução.
+    // --- 3. Disparo da Notificação (Desempenho) ---
     if (notificationPayload) {
-      await createNotification(notificationPayload);
+      createNotification(notificationPayload).catch((err) => {
+        logEvents(`Falha ao criar notificação para desvinculação de membro: ${err.message}`, LOG_FILE);
+      });
     }
 
-    // Retorna uma resposta de sucesso ao cliente.
+    // --- 4. Envio da Resposta de Sucesso ---
     return res.status(200).json({
       success: true,
-      message: "Cotista desvinculado com sucesso.",
+      message: 'O membro foi desvinculado da propriedade com sucesso.',
     });
-
   } catch (error) {
-    // Bloco de tratamento de erros para a operação.
-    const errorMessage = error instanceof Error ? error.message : "Erro interno do servidor.";
-    // Registra o erro detalhado no console do servidor para fins de depuração.
-    console.error(`Falha ao desvincular membro: ${errorMessage}`, error);
-    // Retorna uma resposta de erro ao cliente.
-    return res.status(400).json({ success: false, message: errorMessage });
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ success: false, message: error.issues[0].message });
+    }
+    if (error instanceof Error) {
+      return res.status(400).json({ success: false, message: error.message });
+    }
+
+    const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+    logEvents(`ERRO ao desvincular membro: ${errorMessage}\n${error instanceof Error ? error.stack : ''}`, LOG_FILE);
+
+    return res.status(500).json({
+      success: false,
+      message: 'Ocorreu um erro inesperado no servidor ao desvincular o membro.',
+    });
   }
 };

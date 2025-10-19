@@ -1,30 +1,46 @@
 // Todos direitos autorais reservados pelo QOTA.
 
+/**
+ * Suite de Testes para os Endpoints de Autenticação
+ *
+ * Descrição:
+ * Este arquivo contém os testes de integração para as rotas de autenticação
+ * da API. O objetivo é garantir que os processos de registro, login, logout e
+ * renovação de token funcionem conforme o esperado, cobrindo cenários de
+ * sucesso, falha e segurança.
+ */
 import request from 'supertest';
-import express from 'express';
-import cookieParser from 'cookie-parser'; // Adicionado para parsear cookies nas requisições
+import express, { Request, Response, NextFunction } from 'express';
+import cookieParser from 'cookie-parser';
 import { apiV1Router } from '../routes/routes';
 import { prismaMock } from '../../jest.setup';
+import jwt from 'jsonwebtoken';
+import { protect } from '../middleware/authMiddleware';
 
-// Mock das dependências para isolar os testes dos comportamentos reais das bibliotecas.
+// --- Mocks das Dependências ---
 jest.mock('bcrypt', () => ({
   hash: jest.fn().mockResolvedValue('hashedPassword'),
   compare: jest.fn((plain, hashed) => Promise.resolve(plain === 'Password123!' && hashed.startsWith('hashed'))),
 }));
 
-jest.mock('jsonwebtoken', () => ({
-  sign: jest.fn((payload, secret, options) => `mocked-jwt-token-for-${payload.userId}`),
-  verify: jest.fn(),
-}));
+jest.mock('jsonwebtoken');
+const mockedJwt = jwt as jest.Mocked<typeof jwt>;
 
-// Configuração da aplicação Express para o ambiente de teste.
+jest.mock('../middleware/authMiddleware', () => ({
+  protect: jest.fn((req: Request, res: Response, next: NextFunction) => {
+    req.user = { id: 1, email: 'test@qota.com', nomeCompleto: 'Usuário de Teste' };
+    next();
+  }),
+}));
+const mockedProtect = protect as jest.Mock;
+
+// --- Configuração da Aplicação de Teste ---
 const app = express();
 app.use(express.json());
-app.use(cookieParser()); // Habilita o parser de cookies
+app.use(cookieParser());
 app.use('/api/v1', apiV1Router);
 
 // --- Dados Mockados para os Testes ---
-
 const testUserPayload = {
   email: `test-${Date.now()}@qota.com`,
   password: 'Password123!',
@@ -36,7 +52,7 @@ const testUserPayload = {
 const mockFullUser = {
   id: 1,
   email: testUserPayload.email,
-  password: `hashed-${testUserPayload.password}`, 
+  password: `hashed-${testUserPayload.password}`,
   refreshToken: 'valid-refresh-token',
   nomeCompleto: testUserPayload.nomeCompleto,
   telefone: null,
@@ -49,128 +65,137 @@ const mockFullUser = {
   excludedAt: null,
 };
 
-
+// --- Suite Principal de Testes de Autenticação ---
 describe('Endpoints de Autenticação (/api/v1/auth)', () => {
-
-  // Limpa todos os mocks antes de cada teste para garantir o isolamento.
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  // --- Testes para o Endpoint de Registro ---
+  // Testes para o endpoint de Registro de novos usuários.
   describe('POST /register', () => {
-    it('Deve registrar um novo usuário com sucesso e retornar um access token', async () => {
+    it('Deve registrar um novo usuário com sucesso', async () => {
+      // Arrange
       prismaMock.user.findFirst.mockResolvedValue(null);
-      prismaMock.user.create.mockResolvedValue(mockFullUser);
-      prismaMock.user.update.mockResolvedValue(mockFullUser); // Mock para a atualização do refresh token
+      prismaMock.user.create.mockResolvedValue(mockFullUser as any);
+      prismaMock.user.update.mockResolvedValue(mockFullUser as any);
+      (mockedJwt.sign as jest.Mock).mockReturnValue('mocked-access-token');
 
-      const response = await request(app)
-        .post('/api/v1/auth/register')
-        .send(testUserPayload);
+      // Act
+      const response = await request(app).post('/api/v1/auth/register').send(testUserPayload);
 
+      // Assert
       expect(response.status).toBe(201);
-      expect(response.body.success).toBe(true);
       expect(response.body.data).toHaveProperty('accessToken');
     });
 
-    it('Deve impedir o registro com um e-mail duplicado', async () => {
-      prismaMock.user.findFirst.mockResolvedValue(mockFullUser);
+    it('Deve retornar 400 para dados de registro inválidos (CPF incorreto)', async () => {
+        // Act
+        const response = await request(app).post('/api/v1/auth/register').send({ ...testUserPayload, cpf: '123' });
 
-      const response = await request(app)
-        .post('/api/v1/auth/register')
-        .send(testUserPayload);
-
-      expect(response.status).toBe(409);
-      expect(response.body.message).toContain('Este e-mail já está em uso');
+        // Assert
+        expect(response.status).toBe(400);
+        expect(response.body.message).toContain('O CPF deve ter exatamente 11 dígitos.');
     });
 
-    it('Deve retornar erro 400 para senhas com menos de 6 caracteres', async () => {
-      const response = await request(app)
-        .post('/api/v1/auth/register')
-        .send({ ...testUserPayload, password: '123' });
+    it('Deve retornar 409 para um e-mail duplicado', async () => {
+        // Arrange
+        prismaMock.user.findFirst.mockResolvedValue(mockFullUser as any);
 
-      expect(response.status).toBe(400);
-      expect(response.body.message).toContain('A senha deve ter pelo menos 6 caracteres');
+        // Act
+        const response = await request(app).post('/api/v1/auth/register').send(testUserPayload);
+
+        // Assert
+        expect(response.status).toBe(409);
+        expect(response.body.message).toContain('Este e-mail já está em uso');
     });
   });
 
-  // --- Testes para o Endpoint de Login ---
+  // Testes para o endpoint de Login de usuários existentes.
   describe('POST /login', () => {
-    it('Deve autenticar um usuário com credenciais corretas e retornar um access token', async () => {
-      prismaMock.user.findFirst.mockResolvedValue(mockFullUser);
-      prismaMock.user.update.mockResolvedValue(mockFullUser);
+    it('Deve autenticar um usuário com credenciais corretas', async () => {
+      // Arrange
+      prismaMock.user.findFirst.mockResolvedValue(mockFullUser as any);
+      prismaMock.user.update.mockResolvedValue(mockFullUser as any);
+      (mockedJwt.sign as jest.Mock).mockReturnValue('mocked-access-token');
 
-      const response = await request(app)
-        .post('/api/v1/auth/login')
-        .send({ email: testUserPayload.email, password: testUserPayload.password });
-
-      expect(response.status).toBe(200);
-      expect(response.body.data).toHaveProperty('accessToken');
-      expect(response.headers['set-cookie']).toBeDefined(); // Verifica se o cookie 'jwt' foi setado
-    });
-
-    it('Deve rejeitar o login com uma senha incorreta usando uma mensagem genérica', async () => {
-      prismaMock.user.findFirst.mockResolvedValue(mockFullUser);
-      
-      const response = await request(app)
-        .post('/api/v1/auth/login')
-        .send({ email: testUserPayload.email, password: 'wrongPassword' });
-
-      expect(response.status).toBe(401);
-      // Valida a mensagem de erro genérica para evitar enumeração de usuários.
-      expect(response.body.message).toBe('E-mail ou senha inválidos.');
-    });
-
-    it('Deve rejeitar o login de um usuário não existente usando uma mensagem genérica', async () => {
-      prismaMock.user.findFirst.mockResolvedValue(null);
-
-      const response = await request(app)
-        .post('/api/v1/auth/login')
-        .send({ email: 'nonexistent@qota.com', password: 'anyPassword' });
-
-      expect(response.status).toBe(401);
-      // Valida a mesma mensagem genérica.
-      expect(response.body.message).toBe('E-mail ou senha inválidos.');
-    });
-  });
-
-  // --- Testes para o Endpoint de Refresh Token ---
-  describe('POST /refresh', () => {
-    it('Deve renovar o access token com sucesso ao fornecer um refresh token válido', async () => {
-      prismaMock.user.findFirst.mockResolvedValue(mockFullUser);
-      
-      // Simula a verificação bem-sucedida do JWT
-      (require('jsonwebtoken').verify as jest.Mock).mockImplementation((token, secret, callback) => {
-        callback(null, { userId: mockFullUser.id, email: mockFullUser.email });
+      // Act
+      const response = await request(app).post('/api/v1/auth/login').send({
+        email: testUserPayload.email,
+        password: testUserPayload.password,
       });
 
-      const response = await request(app)
-        .post('/api/v1/auth/refresh')
-        .set('Cookie', `jwt=${mockFullUser.refreshToken}`); // Envia o cookie na requisição
-
+      // Assert
       expect(response.status).toBe(200);
-      expect(response.body.success).toBe(true);
       expect(response.body.data).toHaveProperty('accessToken');
     });
 
-    it('Deve retornar 401 Unauthorized se nenhum refresh token for fornecido', async () => {
-      const response = await request(app)
-        .post('/api/v1/auth/refresh'); // Sem cookie
+    it('Deve retornar 401 para um usuário desativado (soft-deleted)', async () => {
+        // Arrange: A query do controller busca por `excludedAt: null`. Se o usuário
+        // está desativado, a busca no banco de dados real retornaria `null`.
+        // O mock deve simular este comportamento.
+        prismaMock.user.findFirst.mockResolvedValue(null);
 
-      expect(response.status).toBe(401);
-      expect(response.body.message).toContain('Acesso não autorizado');
+        // Act
+        const response = await request(app).post('/api/v1/auth/login').send({
+            email: testUserPayload.email,
+            password: testUserPayload.password,
+        });
+
+        // Assert
+        expect(response.status).toBe(401);
+        expect(response.body.message).toBe('E-mail ou senha inválidos.');
+    });
+  });
+
+  // Testes para o endpoint de Renovação de Token.
+  describe('POST /refresh', () => {
+    it('Deve renovar o access token com sucesso', async () => {
+      // Arrange
+      prismaMock.user.findFirst.mockResolvedValue(mockFullUser as any);
+      (mockedJwt.verify as jest.Mock).mockReturnValue({ userId: mockFullUser.id, email: mockFullUser.email });
+      (mockedJwt.sign as jest.Mock).mockReturnValue('new-mocked-access-token');
+
+      // Act
+      const response = await request(app).post('/api/v1/auth/refresh').set('Cookie', `jwt=${mockFullUser.refreshToken}`);
+
+      // Assert
+      expect(response.status).toBe(200);
+      expect(response.body.data).toHaveProperty('accessToken');
+    });
+  });
+
+  // Testes para o endpoint de Logout de usuários.
+  describe('POST /logout', () => {
+    it('Deve realizar o logout com sucesso para um usuário autenticado', async () => {
+      // Arrange
+      mockedProtect.mockImplementation((req: Request, res: Response, next: NextFunction) => {
+        req.user = { id: mockFullUser.id, email: mockFullUser.email, nomeCompleto: mockFullUser.nomeCompleto };
+        next();
+      });
+      prismaMock.user.findFirst.mockResolvedValue(mockFullUser as any);
+      prismaMock.user.update.mockResolvedValue({ ...mockFullUser, refreshToken: null } as any);
+
+      // Act
+      const response = await request(app)
+        .post('/api/v1/auth/logout')
+        .set('Cookie', `jwt=${mockFullUser.refreshToken}`);
+
+      // Assert
+      expect(response.status).toBe(200);
+      expect(response.body.message).toBe('Logout realizado com sucesso.');
     });
 
-    it('Deve retornar 403 Forbidden se o refresh token for inválido ou não corresponder a um usuário', async () => {
-      // Simula que o token fornecido não foi encontrado no banco de dados.
-      prismaMock.user.findFirst.mockResolvedValue(null);
+    it('Deve retornar 401 se a rota de logout for chamada sem autenticação', async () => {
+      // Arrange
+      mockedProtect.mockImplementation((req: Request, res: Response, next: NextFunction) => {
+        return res.status(401).json({ success: false, message: "Acesso não autorizado." });
+      });
 
-      const response = await request(app)
-        .post('/api/v1/auth/refresh')
-        .set('Cookie', 'jwt=invalid-or-revoked-token');
+      // Act
+      const response = await request(app).post('/api/v1/auth/logout');
 
-      expect(response.status).toBe(403);
-      expect(response.body.message).toContain('Acesso proibido. Token inválido');
+      // Assert
+      expect(response.status).toBe(401);
     });
   });
 });

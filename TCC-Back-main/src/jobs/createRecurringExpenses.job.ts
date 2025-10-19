@@ -1,14 +1,36 @@
 // Todos direitos autorais reservados pelo QOTA.
 
+/**
+ * Job para Criação Automática de Despesas Recorrentes
+ *
+ * Descrição:
+ * Este arquivo contém a lógica para um "job" (tarefa agendada) que é responsável
+ * por gerar automaticamente as despesas recorrentes do sistema.
+ *
+ * O processo é projetado para ser executado periodicamente (ex: uma vez por dia):
+ * 1.  Busca todos os "templates" de despesas marcados como recorrentes.
+ * 2.  Para cada template, verifica se uma nova despesa deve ser criada no dia atual,
+ * com base na sua frequência (diária, semanal, mensal, anual).
+ * 3.  Garante que nenhuma despesa duplicada seja criada para o mesmo período.
+ * 4.  Cria a nova instância da despesa, seus rateios de pagamento e dispara uma
+ * notificação em segundo plano para os membros da propriedade.
+ *
+ * Toda a atividade do job é registrada em arquivos de log para monitoramento.
+ */
 import { prisma } from '../utils/prisma';
 import { createExpenseWithPayments } from '../services/expense.service';
-import { createNotification } from '../utils/notification.service';
-import { Despesa } from '@prisma/client';
+import { createNotification } from '../utils/notification.service'; 
+import { logEvents } from '../middleware/logEvents';
+
+// --- Constantes e Funções Auxiliares ---
+
+// ID do usuário "Sistema", idealmente carregado de variáveis de ambiente.
+const SYSTEM_USER_ID = parseInt(process.env.SYSTEM_USER_ID || '1', 10);
+const LOG_FILE = 'recurringExpenses.log';
 
 /**
- * Define o início e o fim de um determinado dia.
- * @param date - A data de referência.
- * @returns Um objeto com as datas de início e fim.
+ * Retorna um objeto com as datas de início e fim de um determinado dia.
+ * @param date A data de referência.
  */
 const getDayBoundaries = (date: Date) => {
   const start = new Date(date);
@@ -19,115 +41,114 @@ const getDayBoundaries = (date: Date) => {
 };
 
 /**
- * Procura por despesas recorrentes que precisam ser criadas no dia atual e as gera.
+ * Executa o job que procura por despesas recorrentes e as cria se necessário.
  */
 export const runCreateRecurringExpensesJob = async () => {
-  console.log('[Job] Iniciando verificação de despesas recorrentes...');
+  logEvents('Iniciando job de criação de despesas recorrentes...', LOG_FILE);
   const hoje = new Date();
-  
+
+  // --- 1. Busca dos Templates de Despesas Recorrentes ---
   const templates = await prisma.despesa.findMany({
     where: {
       recorrente: true,
-      recorrenciaPaiId: null, // Garante que estamos pegando apenas os "templates"
+      recorrenciaPaiId: null, // Garante que estamos pegando apenas os modelos-pai.
     },
   });
 
   if (templates.length === 0) {
-    console.log('[Job] Nenhuma despesa recorrente configurada.');
+    logEvents('Nenhuma despesa recorrente configurada. Job concluído.', LOG_FILE);
     return;
   }
 
+  logEvents(`Encontrados ${templates.length} templates de despesas para processar.`, LOG_FILE);
+
+  // --- 2. Iteração sobre cada Template de Despesa ---
   for (const template of templates) {
     let deveCriarHoje = false;
     let novaDataVencimento = new Date(hoje);
-    let periodoVerificacao = getDayBoundaries(hoje); // Padrão é diário
+    let periodoVerificacao = getDayBoundaries(hoje);
 
-    // Define se a despesa deve ser criada hoje e qual sua nova data de vencimento
-    switch (template.frequencia) {
-      case 'DIARIO':
-        deveCriarHoje = true;
-        // A data de vencimento é o próprio dia da criação.
-        novaDataVencimento = hoje;
-        break;
-
-      case 'SEMANAL':
-        // No frontend, o dia da semana deve ser salvo como número (0=Domingo, 6=Sábado)
-        if (hoje.getDay() === template.diaRecorrencia) {
-          deveCriarHoje = true;
-          novaDataVencimento = hoje;
-          // Período de verificação para a semana atual
-          const primeiroDiaSemana = new Date(hoje.setDate(hoje.getDate() - hoje.getDay()));
-          periodoVerificacao = getDayBoundaries(primeiroDiaSemana); // Verifica a partir do início da semana
-        }
-        break;
-        
-      case 'MENSAL':
-        if (hoje.getDate() === template.diaRecorrencia) {
-          deveCriarHoje = true;
-          novaDataVencimento = new Date(hoje.getFullYear(), hoje.getMonth(), template.diaRecorrencia!);
-          // Período de verificação para o mês atual
-          const inicioDoMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
-          const fimDoMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
-          periodoVerificacao = { gte: inicioDoMes, lte: fimDoMes };
-        }
-        break;
-
-      case 'ANUAL':
-        const mesOriginal = template.dataVencimento.getMonth();
-        const diaOriginal = template.dataVencimento.getDate();
-        if (hoje.getMonth() === mesOriginal && hoje.getDate() === diaOriginal) {
-          deveCriarHoje = true;
-          novaDataVencimento = new Date(hoje.getFullYear(), mesOriginal, diaOriginal);
-           // Período de verificação para o ano atual
-          const inicioDoAno = new Date(hoje.getFullYear(), 0, 1);
-          const fimDoAno = new Date(hoje.getFullYear(), 11, 31);
-          periodoVerificacao = { gte: inicioDoAno, lte: fimDoAno };
-        }
-        break;
-    }
-
-    if (!deveCriarHoje) {
-      continue;
-    }
-
-    // Verifica se uma despesa para este template e este período já não foi criada.
-    const jaExiste = await prisma.despesa.findFirst({
-      where: {
-        recorrenciaPaiId: template.id,
-        createdAt: periodoVerificacao,
-      },
-    });
-
-    if (jaExiste) {
-      console.log(`[Job] Despesa recorrente '${template.descricao}' já existe para este período. Pulando.`);
-      continue;
-    }
-
-    // Prepara os dados da nova despesa, omitindo campos do template que não devem ser copiados.
-    const { id, createdAt, updatedAt, ...restOfTemplate } = template;
-    const novaDespesaData = {
-      ...restOfTemplate,
-      dataVencimento: novaDataVencimento,
-      recorrenciaPaiId: template.id,
-      recorrente: false, // A despesa filha não é um template
-      status: 'PENDENTE' as const, // Define o status inicial como pendente
-    };
-    
-    console.log(`[Job] Criando nova despesa recorrente para '${template.descricao}'...`);
     try {
-      await prisma.$transaction(async (tx) => {
-        // Usa o serviço para criar a despesa e seus pagamentos.
-        const novaDespesa = await createExpenseWithPayments(novaDespesaData, tx);
-        
-        await createNotification({
-          idPropriedade: novaDespesa.idPropriedade,
-          idAutor: 1, // Autor "Sistema"
-          mensagem: `Nova despesa recorrente gerada automaticamente: '${novaDespesa.descricao}'.`,
+        // 2.1. Determinação da Lógica de Recorrência
+        switch (template.frequencia) {
+            case 'DIARIO':
+              deveCriarHoje = true;
+              novaDataVencimento = hoje;
+              break;
+            case 'SEMANAL':
+              if (hoje.getDay() === template.diaRecorrencia) {
+                deveCriarHoje = true;
+                novaDataVencimento = hoje;
+                const primeiroDiaSemana = new Date(hoje.setDate(hoje.getDate() - hoje.getDay()));
+                periodoVerificacao = { gte: new Date(primeiroDiaSemana.setHours(0,0,0,0)), lte: new Date() };
+              }
+              break;
+            case 'MENSAL':
+              if (hoje.getDate() === template.diaRecorrencia) {
+                deveCriarHoje = true;
+                novaDataVencimento = new Date(hoje.getFullYear(), hoje.getMonth(), template.diaRecorrencia!);
+                periodoVerificacao = { gte: new Date(hoje.getFullYear(), hoje.getMonth(), 1), lte: new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0, 23, 59, 59) };
+              }
+              break;
+            case 'ANUAL':
+              const mesOriginal = template.dataVencimento.getMonth();
+              const diaOriginal = template.dataVencimento.getDate();
+              if (hoje.getMonth() === mesOriginal && hoje.getDate() === diaOriginal) {
+                deveCriarHoje = true;
+                novaDataVencimento = new Date(hoje.getFullYear(), mesOriginal, diaOriginal);
+                periodoVerificacao = { gte: new Date(hoje.getFullYear(), 0, 1), lte: new Date(hoje.getFullYear(), 11, 31, 23, 59, 59) };
+              }
+              break;
+        }
+
+        if (!deveCriarHoje) {
+          continue;
+        }
+
+        // 2.2. Verificação de Idempotência (Evitar Duplicatas)
+        const jaExiste = await prisma.despesa.findFirst({
+            where: {
+                recorrenciaPaiId: template.id,
+                createdAt: { gte: periodoVerificacao.gte },
+            },
         });
-      });
+
+        if (jaExiste) {
+          logEvents(`Despesa para o template '${template.descricao}' (ID: ${template.id}) já existe neste período. Pulando.`, LOG_FILE);
+          continue;
+        }
+
+        // 2.3. Preparação e Criação da Nova Despesa
+        const { id, createdAt, updatedAt, ...restOfTemplate } = template;
+        const novaDespesaData = {
+            ...restOfTemplate,
+            dataVencimento: novaDataVencimento,
+            recorrenciaPaiId: template.id,
+            recorrente: false,
+            status: 'PENDENTE' as const,
+        };
+      
+        logEvents(`Criando nova instância para despesa recorrente '${template.descricao}' (ID: ${template.id}).`, LOG_FILE);
+
+        const novaDespesa = await prisma.$transaction(async (tx) => {
+          return await createExpenseWithPayments(novaDespesaData, tx);
+        });
+
+        // 2.4. Disparo da Notificação (Desempenho)
+        createNotification({
+          idPropriedade: novaDespesa.idPropriedade,
+          idAutor: SYSTEM_USER_ID,
+          mensagem: `Nova despesa recorrente gerada automaticamente: '${novaDespesa.descricao}'.`,
+        }).catch(err => {
+          logEvents(`Falha ao criar notificação para despesa recorrente: ${err.message}`, LOG_FILE);
+        });
+
     } catch (error) {
-      console.error(`[Job] Erro ao criar despesa recorrente para o template ID ${template.id}:`, error);
+        const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+        logEvents(`ERRO ao processar template de despesa ID ${template.id}: ${errorMessage}\n${error instanceof Error ? error.stack : ''}`, LOG_FILE);
     }
   }
-  console.log('[Job] Verificação de despesas recorrentes concluída.');
+
+  // --- 3. Finalização do Job ---
+  logEvents('Job de criação de despesas recorrentes concluído.', LOG_FILE);
 };

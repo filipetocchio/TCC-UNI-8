@@ -1,23 +1,29 @@
 // Todos direitos autorais reservados pelo QOTA.
 
-import express, { Request } from 'express';
-import multer, { FileFilterCallback } from 'multer';
+/**
+ * Definição da Rota de Validação
+ *
+ * Descrição:
+ * Este arquivo define a rota para o endpoint de validação de endereço.
+ * A rota é protegida e utiliza um middleware de upload customizado para processar
+ * o documento (comprovante de endereço) enviado para análise.
+ */
+import express from 'express';
 import { protect } from '../middleware/authMiddleware';
 import { validateAddressDocument } from '../controllers/Validation/validateAddress.controller';
+import { uploadPdfForValidation } from '../middleware/upload';
 
-// Função de filtro para aceitar apenas PDFs
-const pdfFilter = (req: Request, file: Express.Multer.File, cb: FileFilterCallback) => {
-  if (file.mimetype === 'application/pdf') {
-    cb(null, true);
-  } else {
-    cb(new Error('Formato de arquivo inválido. Apenas PDFs são aceitos.'));
-  }
-};
-
-const storage = multer.memoryStorage();
-// Adiciona o fileFilter à configuração do multer
-const upload = multer({ storage, fileFilter: pdfFilter, limits: { fileSize: 5 * 1024 * 1024 } });
-
+// Criação do roteador para o escopo de validação.
 export const validation = express.Router();
 
-validation.post('/address', protect, upload.single('documento'), validateAddressDocument);
+// Rota para validar um comprovante de endereço.
+// A requisição primeiro passa pela autenticação (`protect`), depois pelo middleware
+// de upload (`uploadPdfForValidation`) que processa o arquivo em memória, e
+// finalmente chega ao controlador para ser encaminhado ao serviço de OCR.
+// Acesso: Privado (requer autenticação).
+validation.post(
+  '/address',
+  protect,
+  uploadPdfForValidation.single('documento'),
+  validateAddressDocument
+);

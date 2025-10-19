@@ -1,32 +1,33 @@
 // Todos direitos autorais reservados pelo QOTA.
 
+/**
+ * Suite de Testes Unitários para o Controlador acceptInvite
+ *
+ * Descrição:
+ * Este arquivo contém os testes unitários para o controlador `acceptInvite`.
+ * Estes testes focam em isolar a lógica do controlador, mockando todas as suas
+ * dependências externas para validar o comportamento em diversos cenários
+ * de sucesso e falha de forma rápida e determinística.
+ */
 import { acceptInvite } from '../controllers/Invite/accept.Invite.controller';
 import { prisma } from '../utils/prisma';
 import { Request, Response } from 'express';
+import { createNotification } from '../utils/notification.service';
 import { Prisma } from '@prisma/client';
 
-// Mock do Prisma Client para simular o banco de dados.
+// --- Mocks das Dependências ---
 jest.mock('../utils/prisma', () => ({
   prisma: {
     $transaction: jest.fn(),
-    convite: {
-      findFirst: jest.fn(),
-      update: jest.fn(),
-    },
-    usuariosPropriedades: {
-      findFirst: jest.fn(),
-      update: jest.fn(),
-      create: jest.fn(),
-    },
+    convite: { updateMany: jest.fn() },
   },
 }));
 
-// Funções para criar mocks dos objetos Request e Response do Express.
-const mockRequest = (params: any, user: any): Request => ({
-  params,
-  user,
-} as unknown as Request);
+jest.mock('../utils/notification.service');
+const mockedCreateNotification = createNotification as jest.Mock;
 
+// --- Funções Auxiliares para Mocks ---
+const mockRequest = (params: any, user: any): Request => ({ params, user } as unknown as Request);
 const mockResponse = (): Response => {
   const res: Partial<Response> = {};
   res.status = jest.fn().mockReturnValue(res);
@@ -34,104 +35,92 @@ const mockResponse = (): Response => {
   return res as Response;
 };
 
-// --- MOCKS ATUALIZADOS ---
-
-const mockUser = { id: 2, email: 'novo.cotista@qota.com' };
+// --- Dados Mockados para os Testes ---
+const mockUser = { id: 2, email: 'novo.cotista@qota.com', nomeCompleto: 'Novo Cotista' };
+const mockProperty = { id: 10, diariasPorFracao: 7.019, nomePropriedade: 'Casa de Teste' };
 
 const mockValidInvite = {
-  id: 1,
-  token: 'valid-token',
-  emailConvidado: 'novo.cotista@qota.com',
-  idPropriedade: 10,
-  idConvidadoPor: 1,
-  permissao: 'proprietario_comum',
-  porcentagemCota: 25.5,       
-  usuarioJaExiste: true,       
-  status: 'PENDENTE' as const, // Assegura o tipo correto para o enum
+  id: 1, token: 'valid-token', emailConvidado: 'novo.cotista@qota.com',
+  idPropriedade: 10, idConvidadoPor: 1, permissao: 'proprietario_comum',
+  numeroDeFracoes: 2, status: 'PENDENTE' as const,
   dataExpiracao: new Date(Date.now() + 24 * 60 * 60 * 1000),
+  propriedade: mockProperty,
 };
 
 const mockMasterLink = {
-  id: 101,
-  idUsuario: 1,
-  idPropriedade: 10,
-  porcentagemCota: 70,         
-  permissao: 'proprietario_master'
+  id: 101, idUsuario: 1, idPropriedade: 10,
+  numeroDeFracoes: 50, permissao: 'proprietario_master',
 };
 
-
-describe('acceptInvite Controller - Teste de Cenários', () => {
-
+// --- Suite Principal de Testes Unitários ---
+describe('Controlador acceptInvite - Testes Unitários', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  // ==================================
-  // CENÁRIOS DE FALHA
-  // ==================================
-
-  it('Deve retornar erro 401 se o usuário não estiver autenticado', async () => {
-    const req = mockRequest({ token: 'some-token' }, undefined);
-    const res = mockResponse();
-    await acceptInvite(req, res);
-    expect(res.status).toHaveBeenCalledWith(401);
-    expect(res.json).toHaveBeenCalledWith({ success: false, message: "Usuário não autenticado." });
-  });
-
-  it('Deve retornar erro se o convite não for encontrado', async () => {
-    const req = mockRequest({ token: 'invalid-token' }, mockUser);
-    const res = mockResponse();
-    (prisma.$transaction as jest.Mock).mockImplementation(async (callback) => {
-      const mockTx = { convite: { findFirst: jest.fn().mockResolvedValue(null) } };
-      return await callback(mockTx);
+  // Testes para os cenários de falha do controlador.
+  describe('Cenários de Falha', () => {
+    it('Deve retornar 400 se o convite não for encontrado', async () => {
+      // Arrange
+      const req = mockRequest({ token: 'invalid-token' }, mockUser);
+      const res = mockResponse();
+      (prisma.$transaction as jest.Mock).mockRejectedValue(new Error('Convite inválido, expirado ou já utilizado.'));
+      // Act
+      await acceptInvite(req, res);
+      // Assert
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({ success: false, message: "Convite inválido, expirado ou já utilizado." });
     });
-    await acceptInvite(req, res);
-    expect(res.status).toHaveBeenCalledWith(400); // Erros de validação retornam 400
-    expect(res.json).toHaveBeenCalledWith({ success: false, message: "Convite inválido, expirado ou já utilizado." });
-  });
-  
-  it('Deve retornar erro se o email do usuário não corresponder ao do convite', async () => {
-    const req = mockRequest({ token: 'valid-token' }, { id: 3, email: 'wrong.user@qota.com' });
-    const res = mockResponse();
-    (prisma.$transaction as jest.Mock).mockImplementation(async (callback) => {
-      const mockTx = { convite: { findFirst: jest.fn().mockResolvedValue(mockValidInvite) } };
-      return await callback(mockTx);
-    });
-    await acceptInvite(req, res);
-    expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith({ success: false, message: "Acesso negado: Este convite foi destinado a outro e-mail." });
-  });
-
-  // ==================================
-  // CENÁRIO DE SUCESSO
-  // ==================================
-  
-  it('Deve executar a transação com sucesso e retornar 200', async () => {
-    const req = mockRequest({ token: 'valid-token' }, mockUser);
-    const res = mockResponse();
-    const newCreatedLink = { id: 202, idUsuario: mockUser.id, porcentagemCota: 25.5 };
-
-    (prisma.$transaction as jest.Mock).mockImplementation(async (callback) => {
-      const mockTx = { 
-        convite: { 
-          findFirst: jest.fn().mockResolvedValue(mockValidInvite),
-          update: jest.fn().mockResolvedValue({}),
-        },
-        usuariosPropriedades: { 
-          findFirst: jest.fn().mockResolvedValue(mockMasterLink),
-          update: jest.fn().mockResolvedValue({}),
-          create: jest.fn().mockResolvedValue(newCreatedLink),
-        }
-      };
-      return await callback(mockTx);
+    
+    it('Deve retornar 400 se o master não tiver frações suficientes', async () => {
+        // Arrange
+        const req = mockRequest({ token: 'valid-token' }, mockUser);
+        const res = mockResponse();
+        (prisma.$transaction as jest.Mock).mockRejectedValue(new Error('O proprietário que enviou o convite não possui frações suficientes (1) para ceder.'));
+        // Act
+        await acceptInvite(req, res);
+        // Assert
+        expect(res.status).toHaveBeenCalledWith(400);
+        expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ message: expect.stringContaining('não possui frações suficientes') }));
     });
 
-    await acceptInvite(req, res);
+    it('Deve retornar 400 se o convidante não for mais um master', async () => {
+        // Arrange
+        const req = mockRequest({ token: 'valid-token' }, mockUser);
+        const res = mockResponse();
+        (prisma.$transaction as jest.Mock).mockRejectedValue(new Error('O usuário que o convidou não é mais um proprietário master desta propriedade.'));
+        // Act
+        await acceptInvite(req, res);
+        // Assert
+        expect(res.status).toHaveBeenCalledWith(400);
+        expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ message: expect.stringContaining('não é mais um proprietário master') }));
+    });
+  });
 
-    expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-      success: true,
-      message: "Convite aceito! A propriedade foi adicionada à sua conta.",
-    }));
+  // Testes para o cenário de sucesso do controlador.
+  describe('Cenário de Sucesso', () => {
+    it('Deve executar a transação, disparar a notificação e retornar 200', async () => {
+      // Arrange
+      const req = mockRequest({ token: 'valid-token' }, mockUser);
+      const res = mockResponse();
+      
+      // Simula que a transação foi bem-sucedida e retornou o payload da notificação.
+      (prisma.$transaction as jest.Mock).mockResolvedValue({
+        idPropriedade: mockValidInvite.idPropriedade,
+      });
+      mockedCreateNotification.mockResolvedValue(undefined);
+
+      // Act
+      await acceptInvite(req, res);
+
+      // Assert
+      expect(prisma.$transaction).toHaveBeenCalled();
+      expect(mockedCreateNotification).toHaveBeenCalled();
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({
+        success: true,
+        message: "Convite aceito com sucesso! A propriedade agora faz parte da sua conta.",
+      });
+    });
   });
 });

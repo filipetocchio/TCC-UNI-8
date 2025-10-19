@@ -1,13 +1,25 @@
 // Todos direitos autorais reservados pelo QOTA.
 
+/**
+ * Controller para Listagem de Próximas Reservas
+ *
+ * Descrição:
+ * Este arquivo contém a lógica para o endpoint que recupera uma lista paginada
+ * de todas as reservas futuras (a partir da data atual) para uma propriedade específica.
+ *
+ * O acesso a este endpoint é seguro, sendo restrito apenas a membros autenticados
+ * da propriedade em questão, garantindo a privacidade do calendário de uso.
+ */
 import { prisma } from '../../utils/prisma';
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import { Prisma } from '@prisma/client';
+import { logEvents } from '../../middleware/logEvents';
 
-/**
- * Schema para validar os parâmetros da requisição.
- */
+// Define o nome do arquivo de log para este controlador.
+const LOG_FILE = 'calendar.log';
+
+// Schema para validar os parâmetros da requisição.
 const getSchema = z.object({
   propertyId: z.string().transform(val => parseInt(val, 10)),
   limit: z.string().optional().transform(val => (val ? parseInt(val, 10) : 10)),
@@ -15,26 +27,43 @@ const getSchema = z.object({
 });
 
 /**
- * Busca e retorna uma lista paginada das próximas reservas de uma propriedade
- * (a partir da data atual).
+ * Busca e retorna uma lista paginada das próximas reservas de uma propriedade.
  */
 export const getUpcomingReservations = async (req: Request, res: Response) => {
   try {
+    // --- 1. Autenticação e Validação de Entrada ---
+    if (!req.user) {
+      return res.status(401).json({ success: false, message: 'Usuário não autenticado.' });
+    }
+    const { id: userId } = req.user;
+
     const { propertyId, limit, page } = getSchema.parse({
       propertyId: req.params.propertyId,
       ...req.query,
     });
+    
+    // --- 2. Verificação de Autorização (Segurança) ---
+    // Garante que o usuário autenticado é membro da propriedade que está tentando acessar.
+    const userPermission = await prisma.usuariosPropriedades.findFirst({
+        where: { idPropriedade: propertyId, idUsuario: userId }
+    });
 
+    if (!userPermission) {
+        return res.status(403).json({
+            success: false,
+            message: 'Acesso negado. Você não tem permissão para visualizar as reservas desta propriedade.'
+        });
+    }
+
+    // --- 3. Execução das Consultas Paginadas em Transação ---
     const skip = (page - 1) * limit;
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // Define o início do dia para uma comparação precisa
+    today.setHours(0, 0, 0, 0); // Define o início do dia para uma comparação precisa.
 
     const where: Prisma.ReservaWhereInput = {
       idPropriedade: propertyId,
       status: { not: 'CANCELADA' },
-      dataInicio: {
-        gte: today, // gte = Greater Than or Equal (maior ou igual a)
-      },
+      dataInicio: { gte: today }, // gte = Greater Than or Equal (maior ou igual a).
     };
 
     const [reservations, total] = await prisma.$transaction([
@@ -43,7 +72,7 @@ export const getUpcomingReservations = async (req: Request, res: Response) => {
         skip,
         take: limit,
         orderBy: {
-          dataInicio: 'asc', // Ordena para mostrar as reservas mais próximas primeiro
+          dataInicio: 'asc', // Ordena para mostrar as reservas mais próximas primeiro.
         },
         select: {
           id: true,
@@ -61,6 +90,7 @@ export const getUpcomingReservations = async (req: Request, res: Response) => {
       prisma.reserva.count({ where }),
     ]);
 
+    // --- 4. Cálculo da Paginação e Envio da Resposta ---
     const totalPages = Math.ceil(total / limit);
 
     return res.status(200).json({
@@ -68,7 +98,7 @@ export const getUpcomingReservations = async (req: Request, res: Response) => {
       message: 'Próximas reservas recuperadas com sucesso.',
       data: {
         reservations,
-        pagination: { page, limit, total, totalPages },
+        pagination: { page, limit, totalRecords: total, totalPages },
       },
     });
 
@@ -76,6 +106,10 @@ export const getUpcomingReservations = async (req: Request, res: Response) => {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ success: false, message: error.issues[0].message });
     }
-    return res.status(500).json({ success: false, message: 'Erro interno do servidor ao buscar as próximas reservas.' });
+    
+    const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+    logEvents(`ERRO ao buscar próximas reservas: ${errorMessage}\n${error instanceof Error ? error.stack : ''}`, LOG_FILE);
+    
+    return res.status(500).json({ success: false, message: 'Ocorreu um erro inesperado no servidor ao buscar as próximas reservas.' });
   }
 };

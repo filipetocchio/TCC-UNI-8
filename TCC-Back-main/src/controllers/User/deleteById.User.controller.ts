@@ -1,60 +1,93 @@
 // Todos direitos autorais reservados pelo QOTA.
 
+/**
+ * Controller para Encerramento de Conta de Usuário por ID
+ *
+ * Descrição:
+ * Este arquivo contém a lógica para o encerramento de uma conta de usuário. O
+ * processo é seguro, garantindo que um usuário só possa encerrar a própria conta,
+ * e é projetado para conformidade com a privacidade de dados.
+ *
+ * A operação combina duas ações principais:
+ * 1.  Soft Delete: O usuário é marcado como inativo no sistema (`excludedAt`).
+ * 2.  Anonimização: Os dados pessoais e únicos do usuário (e-mail, CPF, nome) são
+ * sobrescritos com valores anônimos para liberar as credenciais para futuros
+ * cadastros, efetivando o "direito ao esquecimento".
+ */
 import { prisma } from '../../utils/prisma';
 import { Request, Response } from 'express';
 import { z } from 'zod';
+import { logEvents } from '../../middleware/logEvents';
 
+// Define o nome do arquivo de log para este controlador.
+const LOG_FILE = 'user.log';
+
+// Schema para validar o ID do usuário recebido via parâmetros da URL.
 const deleteUserByIdSchema = z.object({
-  id: z.string().transform(val => parseInt(val, 10)).refine(val => val > 0, { message: 'O ID do usuário é inválido.' }),
+  id: z
+    .string()
+    .transform((val) => parseInt(val, 10))
+    .refine((val) => !isNaN(val) && val > 0, {
+      message: 'O ID do usuário fornecido é inválido.',
+    }),
 });
 
 /**
- * Realiza o encerramento (soft delete) e a anonimização de uma conta de usuário.
- * Ao ser executado, o registro do usuário é marcado como excluído e seus dados
- * de identificação únicos (e-mail, CPF) são ofuscados para liberar as credenciais
- * para futuros cadastros, mantendo a integridade do histórico do sistema.
- * @param req - O objeto de requisição do Express.
- * @param res - O objeto de resposta do Express.
+ * Processa o encerramento e a anonimização da conta de um usuário.
  */
 export const deleteUserById = async (req: Request, res: Response) => {
   try {
-    const { id } = deleteUserByIdSchema.parse(req.params);
+    // --- 1. Autenticação e Validação de Entrada ---
+    if (!req.user) {
+      return res.status(401).json({ success: false, message: 'Usuário não autenticado.' });
+    }
+    const { id: requesterId } = req.user;
+    const { id: targetUserId } = deleteUserByIdSchema.parse(req.params);
 
+    // --- 2. Verificação de Autorização (Segurança) ---
+    // Garante que um usuário só pode encerrar a própria conta.
+  
+    if (requesterId !== targetUserId) {
+      return res.status(403).json({ success: false, message: 'Acesso negado. Você só pode encerrar sua própria conta.' });
+    }
+
+    // --- 3. Busca do Usuário no Banco de Dados ---
     const user = await prisma.user.findUnique({
-      where: { id },
+      where: { id: targetUserId },
     });
 
-    if (!user) {
+    if (!user || user.excludedAt) {
       return res.status(404).json({
         success: false,
-        message: 'Usuário não encontrado.',
+        message: 'Usuário não encontrado ou já foi encerrado.',
       });
     }
 
-    // Prepara os dados anonimizados. Adiciona um prefixo com o timestamp para garantir
-    // que os novos valores de e-mail e CPF sejam sempre únicos no banco de dados.
+    // --- 4. Preparação dos Dados Anonimizados ---
+    // Ofusca os campos únicos com um prefixo e um timestamp para garantir
+    // que o novo valor permaneça único no banco de dados.
     const timestamp = Date.now();
     const anonymizedEmail = `deleted_${timestamp}_${user.email}`;
     const anonymizedCpf = `deleted_${timestamp}_${user.cpf}`;
 
-    // Atualiza o registro do usuário, marcando-o como excluído e anonimizando os campos únicos.
+    // --- 5. Execução da Atualização (Soft Delete e Anonimização) ---
     await prisma.user.update({
-      where: { id },
-      data: { 
+      where: { id: targetUserId },
+      data: {
         excludedAt: new Date(),
         email: anonymizedEmail,
         cpf: anonymizedCpf,
         refreshToken: null, // Invalida qualquer sessão ativa.
-        nomeCompleto: 'Usuário Removido', // Ofusca o nome.
-        telefone: null, // Remove informações de contato.
+        nomeCompleto: 'Usuário Removido',
+        telefone: null,
       },
     });
 
+    // --- 6. Envio da Resposta de Sucesso ---
     return res.status(200).json({
       success: true,
-      message: 'Conta de usuário encerrada com sucesso.',
+      message: 'A sua conta de usuário foi encerrada com sucesso.',
     });
-
   } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({
@@ -63,10 +96,12 @@ export const deleteUserById = async (req: Request, res: Response) => {
       });
     }
 
-    console.error(`Erro ao encerrar conta do usuário ${req.params.id}:`, error);
+    const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+    logEvents(`ERRO ao encerrar conta de usuário: ${errorMessage}\n${error instanceof Error ? error.stack : ''}`, LOG_FILE);
+
     return res.status(500).json({
       success: false,
-      message: 'Erro interno do servidor.',
+      message: 'Ocorreu um erro inesperado no servidor ao encerrar a conta.',
     });
   }
 };

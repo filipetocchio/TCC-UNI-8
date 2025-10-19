@@ -14,7 +14,7 @@ A plataforma substitui métodos manuais e descentralizados (como planilhas e gru
 
 ## Arquitetura
 
-O sistema é construído sobre uma arquitetura de microsserviços para garantir escalabilidade, resiliência e separação de responsabilidades. A comunicação entre os serviços ocorre via requisições HTTP RESTful.
+O sistema é construído sobre uma arquitetura Cliente-Servidor, onde o Servidor foi implementado seguindo um padrão Monolítico Modular com um Microserviço de Apoio para tarefas especializadas. A comunicação ocorre via requisições HTTP RESTful.
 
 -   **Frontend (SPA):** Uma aplicação moderna em **React** responsável por toda a interface e experiência do usuário.
 -   **Backend Principal (API RESTful):** Uma API robusta em **Node.js com Express e TypeScript**, responsável pela lógica de negócios, autenticação, gerenciamento de dados e comunicação com o banco de dados via **Prisma ORM**.
@@ -41,16 +41,65 @@ Antes de começar, garanta que você tem os seguintes softwares instalados e con
 -   **[Git](https://git-scm.com/downloads)**: Para clonar o repositório.
 -   **[Node.js](https://nodejs.org/en/)**: Versão `18.x` ou superior.
 -   **[Python](https://www.python.org/downloads/)**: Versão `3.9` ou superior.
--   **[Tesseract-OCR](https://github.com/UB-Mannheim/tesseract/wiki)**: **Crucial.** Siga as instruções de instalação para o seu SO e **não se esqueça de adicionar o Tesseract ao PATH do sistema** durante a instalação.
--   **[Poppler](https://github.com/oschwartz10612/poppler-windows/releases)**: **Crucial.** Siga as instruções de instalação para o seu SO e **não se esqueça de adicionar o poppler ao PATH do sistema** durante a instalação.
+
+### ⚙️ Instalação das Dependências do OCR (Obrigatório)
+
+O microsserviço de OCR depende de duas ferramentas externas. A instalação correta delas é **crucial** para o funcionamento do sistema.
+
 ---
+#### **Instrução para Windows**
+
+1.  **Instalar Tesseract-OCR:**
+    * Baixe o instalador `tesseract-ocr-w64-setup-*.exe` a partir de [**Tesseract at UB Mannheim**](https://github.com/UB-Mannheim/tesseract/wiki).
+    * Execute o instalador. Durante a instalação, na tela "Additional language data", marque a opção **"Portuguese"** para adicionar o suporte ao idioma português.
+    * **IMPORTANTE:** Na tela de instalação, certifique-se de marcar a opção **"Add Tesseract to the system PATH"**. Isso configura a variável de ambiente automaticamente.
+
+2.  **Instalar Poppler:**
+    * Baixe a versão mais recente do [**Poppler for Windows**](https://github.com/oschwartz10612/poppler-windows/releases/). Procure pelo arquivo `Release-*.zip`.
+    * Extraia o conteúdo do arquivo `.zip` para uma pasta permanente no seu computador (ex: `C:\Program Files\poppler`).
+    * Copie o caminho da pasta `bin` que está dentro do diretório que você extraiu (ex: `C:\Program Files\poppler\bin`).
+    * Adicione este caminho ao **PATH do sistema**:
+        * Pesquise por "Editar as variáveis de ambiente do sistema" no menu Iniciar.
+        * Clique em "Variáveis de Ambiente...".
+        * Na seção "Variáveis do sistema", encontre e selecione a variável `Path` e clique em "Editar".
+        * Clique em "Novo", cole o caminho da pasta `bin` do Poppler e clique em "OK" em todas as janelas.
+
+3.  **Verificação:**
+    * Abra um **novo** terminal (importante para carregar o novo PATH) e execute os comandos `tesseract --version` e `pdftoppm -v`. Se ambos os comandos exibirem as versões das ferramentas, a instalação foi bem-sucedida.
+
+---
+#### **Instrução para Linux (Debian/Ubuntu)**
+
+1.  **Instalar Tesseract-OCR e Poppler:**
+    * Abra o terminal e execute os comandos abaixo para instalar as ferramentas e o pacote de idioma português:
+    ```bash
+    sudo apt update
+    sudo apt install -y tesseract-ocr tesseract-ocr-por poppler-utils
+    ```
+2.  **Verificação:**
+    * Execute os comandos `tesseract --version` e `pdftoppm -v`. Se ambos exibirem as versões, a instalação está correta.
+
+---
+#### **Instrução para macOS (usando Homebrew)**
+
+1.  **Instalar Tesseract-OCR e Poppler:**
+    * Se você não tiver o [Homebrew](https://brew.sh/index_pt-br) instalado, instale-o primeiro.
+    * Abra o terminal e execute os comandos para instalar as ferramentas e o pacote de idioma português:
+    ```bash
+    brew install tesseract tesseract-lang poppler
+    ```
+2.  **Verificação:**
+    * Execute os comandos `tesseract --version` e `pdftoppm -v`. Se ambos exibirem as versões, a instalação está correta.
+
+---
+
 
 ### Instruções Passo a Passo
 
 #### 1. Clone o Repositório
 
 ```bash
-git clone [https://github.com/filipetocchio/TCC-UNI-8](https://github.com/filipetocchio/TCC-UNI-8)
+git clone https://github.com/filipetocchio/TCC-UNI-8
 cd TCC-UNI-8
 ```
 
@@ -60,14 +109,17 @@ Este serviço precisa estar rodando para que a validação de documentos funcion
 
 ```bash
 # Navegue até a pasta do serviço
+cd TCC-UNI-8
+
 cd qota-ocr-service
 
 # Crie e ative um ambiente virtual
 python -m venv venv
 # No Windows:
 .\venv\Scripts\activate
+
 # No Linux/macOS:
-# source venv/bin/activate
+source venv/bin/activate
 
 # Crie o arquivo requirements.txt com o conteúdo abaixo
 # (Flask, pytesseract, opencv-python-headless, Pillow, pdf2image, PyMuPDF, thefuzz, python-Levenshtein)
@@ -86,6 +138,9 @@ python app.py
 Em um **novo terminal**, navegue até a pasta raiz do projeto novamente.
 
 ```bash
+
+cd TCC-UNI-8
+
 # Navegue até a pasta do backend
 cd TCC-Back-main
 
@@ -140,6 +195,9 @@ npm run dev
 Em um **terceiro terminal**, navegue até a pasta raiz do projeto mais uma vez.
 
 ```bash
+
+cd TCC-UNI-8
+
 # Navegue até a pasta do frontend
 cd TCC-Front_Web
 

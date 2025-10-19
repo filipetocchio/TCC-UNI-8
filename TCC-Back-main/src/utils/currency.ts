@@ -1,31 +1,54 @@
+// Todos direitos autorais reservados pelo QOTA.
+
 /**
- * Converte um valor de moeda, que pode ser um número ou uma string em formato
- * brasileiro (ex: "1.234,56") ou padrão (ex: "1234.56"), para um número (float) de forma segura.
- * @param value O valor a ser convertido.
- * @returns O valor numérico correspondente.
+ * Utilitário para Conversão de Moeda
+ *
+ * Descrição:
+ * Este arquivo fornece uma função utilitária robusta para converter valores de
+ * moeda, que podem estar em diversos formatos (número, string formatada em
+ * português, string padrão), para um tipo numérico (float) de forma segura.
+ *
+ * A função é projetada para lidar com entradas nulas, indefinidas ou mal
+ * formatadas, garantindo que o valor de retorno seja sempre um número válido
+ * (padrão de 0 em caso de falha na conversão), evitando a propagação de `NaN`
+ * (Not a Number) no sistema.
  */
-export function parseCurrencyStringToFloat(value: string | number | null | undefined): number {
+
+/**
+ * Converte um valor de moeda (número ou string) para um número (float).
+ * Lida com formatos brasileiros (ex: "1.234,56") e padrão (ex: "1234.56").
+ * @param value O valor a ser convertido.
+ * @returns O valor numérico correspondente, ou 0 se a conversão falhar.
+ */
+export function parseCurrencyStringToFloat(
+  value: string | number | null | undefined
+): number {
+  // --- 1. Tratamento de Casos Nulos ou Indefinidos ---
   if (value === null || value === undefined) {
     return 0;
   }
-  
-  // Se o valor já for um número, simplesmente o retorna.
+
+  // --- 2. Tratamento de Valores Já Numéricos ---
+  // Se o valor já for um número, não há necessidade de conversão.
   if (typeof value === 'number') {
     return value;
   }
 
+  // --- 3. Limpeza e Padronização da String ---
   const stringValue = String(value).trim();
-  
-  // Se a string estiver vazia, retorna 0.
   if (stringValue === '') {
     return 0;
   }
-  
-  // A abordagem mais segura: remove todos os caracteres não numéricos, exceto o último separador (vírgula ou ponto).
-  // Primeiro, remove todos os pontos.
-  let cleanValue = stringValue.replace(/\./g, '');
-  // Em seguida, substitui a vírgula por um ponto.
-  cleanValue = cleanValue.replace(',', '.');
-  
-  return parseFloat(cleanValue);
+
+  // A abordagem mais segura:
+  // a) Remove todos os pontos (separadores de milhar).
+  // b) Substitui a vírgula (separador decimal brasileiro) por um ponto.
+  const cleanValue = stringValue.replace(/\./g, '').replace(',', '.');
+
+  // --- 4. Conversão e Validação Final ---
+  // Converte a string limpa para um número de ponto flutuante.
+  const numericValue = parseFloat(cleanValue);
+
+  // Garante que a função nunca retorne NaN, o que poderia causar erros de cálculo.
+  return isNaN(numericValue) ? 0 : numericValue;
 }

@@ -1,15 +1,22 @@
 // Todos direitos autorais reservados pelo QOTA.
 
 /**
- * @file calendar.route.ts
- * @description Define as rotas da API para o gerenciamento completo do Módulo de Calendário,
- * incluindo reservas, checklists, regras e consultas de histórico.
+ * Definição das Rotas do Módulo de Calendário
+ *
+ * Descrição:
+ * Este arquivo centraliza a definição de todas as rotas da API relacionadas ao
+ * módulo de calendário. Isso inclui o gerenciamento completo do ciclo de vida
+ * das reservas (criação, consulta, cancelamento), os processos de check-in e
+ * check-out, a consulta de históricos e a configuração das regras de agendamento.
+ *
+ * Todas as rotas são protegidas e a autorização granular (verificar se o usuário
+ * pertence à propriedade, se é o dono da reserva, etc.) é tratada dentro de
+ * cada controlador.
  */
-
 import express from 'express';
 import { protect } from '../middleware/authMiddleware';
 
-// Importação de todos os controllers do Módulo de Calendário
+// Importação dos controladores do módulo de calendário
 import { createReservation } from '../controllers/Calendar/create.Reservation.controller';
 import { getReservationsByProperty } from '../controllers/Calendar/getByProperty.Reservations.controller';
 import { getReservationById } from '../controllers/Calendar/getById.Reservation.controller';
@@ -21,86 +28,58 @@ import { getPenaltiesByProperty } from '../controllers/Calendar/get.Penalties.co
 import { getUpcomingReservations } from '../controllers/Calendar/get.UpcomingReservations.controller';
 import { getCompletedReservations } from '../controllers/Calendar/get.CompletedReservations.controller';
 
-
+// Criação do roteador para o escopo de calendário.
 export const calendar = express.Router();
+
 
 // --- Rotas de Gerenciamento de Reservas (CRUD) ---
 
-/**
- * @route   POST /api/v1/calendar/reservation
- * @desc    Cria uma nova reserva para o usuário autenticado.
- * @access  Privado
- */
+// Rota para criar uma nova reserva para o usuário autenticado.
+// Acesso: Privado.
 calendar.post('/reservation', protect, createReservation);
 
-/**
- * @route   GET /api/v1/calendar/reservation/:reservationId
- * @desc    Busca os detalhes de uma reserva específica.
- * @access  Privado
- */
+// Rota para buscar os detalhes de uma reserva específica.
+// Acesso: Privado.
 calendar.get('/reservation/:reservationId', protect, getReservationById);
 
-/**
- * @route   DELETE /api/v1/calendar/reservation/:reservationId
- * @desc    Cancela uma reserva.
- * @access  Privado
- */
+// Rota para cancelar uma reserva.
+// Acesso: Privado.
 calendar.delete('/reservation/:reservationId', protect, cancelReservation);
 
 
 // --- Rotas de Ações (Check-in / Check-out) ---
 
-/**
- * @route   POST /api/v1/calendar/checkin
- * @desc    Registra o check-in de uma reserva com o checklist do inventário.
- * @access  Privado
- */
+// Rota para registrar o check-in de uma reserva com o checklist do inventário.
+// Acesso: Privado.
 calendar.post('/checkin', protect, performCheckin);
 
-/**
- * @route   POST /api/v1/calendar/checkout
- * @desc    Registra o check-out de uma reserva e a conclui.
- * @access  Privado
- */
+// Rota para registrar o check-out de uma reserva.
+// Acesso: Privado.
 calendar.post('/checkout', protect, performCheckout);
 
 
-// --- Rotas de Consulta e Visualização ---
+// --- Rotas de Consulta e Visualização por Propriedade ---
 
-/**
- * @route   GET /api/v1/calendar/property/:propertyId
- * @desc    Busca todas as reservas de uma propriedade dentro de um período (para o calendário principal).
- * @access  Privado
- */
-calendar.get('/property/:propertyId', protect, getReservationsByProperty);
-
-/**
- * @route   GET /api/v1/calendar/property/:propertyId/upcoming
- * @desc    Busca as próximas reservas de uma propriedade.
- * @access  Privado
- */
+// Rota para buscar as próximas reservas de uma propriedade.
+// Acesso: Privado.
 calendar.get('/property/:propertyId/upcoming', protect, getUpcomingReservations);
 
-/**
- * @route   GET /api/v1/calendar/property/:propertyId/completed
- * @desc    Busca as reservas já concluídas de uma propriedade.
- * @access  Privado
- */
+// Rota para buscar as reservas já concluídas de uma propriedade.
+// Acesso: Privado.
 calendar.get('/property/:propertyId/completed', protect, getCompletedReservations);
 
-/**
- * @route   GET /api/v1/calendar/property/:propertyId/penalties
- * @desc    Busca as penalidades ativas de uma propriedade.
- * @access  Privado
- */
+// Rota para buscar as penalidades ativas de uma propriedade.
+// Acesso: Privado.
 calendar.get('/property/:propertyId/penalties', protect, getPenaltiesByProperty);
+
+// Rota para buscar todas as reservas de uma propriedade (para o calendário principal).
+// Deve ser uma das últimas rotas com este prefixo para evitar conflitos.
+// Acesso: Privado.
+calendar.get('/property/:propertyId', protect, getReservationsByProperty);
 
 
 // --- Rotas de Configuração (Apenas para Master) ---
 
-/**
- * @route   PUT /api/v1/calendar/rules/:propertyId
- * @desc    Atualiza as regras de agendamento de uma propriedade.
- * @access  Privado (Acesso restrito a 'proprietario_master' no controller)
- */
+// Rota para atualizar as regras de agendamento de uma propriedade.
+// Acesso: Privado (autorização de 'proprietario_master' é tratada no controlador).
 calendar.put('/rules/:propertyId', protect, updateSchedulingRules);

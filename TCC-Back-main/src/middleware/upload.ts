@@ -1,31 +1,29 @@
 // Todos direitos autorais reservados pelo QOTA.
 
 /**
- * @file upload.ts
- * @description Centraliza as configurações do Multer para o tratamento de uploads de arquivos,
- * oferecendo middlewares para salvar em disco e para processar em memória.
+ * Módulo de Configuração de Uploads (Multer)
+ *
+ * Descrição:
+ * Este arquivo centraliza a configuração do `multer`, o middleware responsável pelo
+ * tratamento de uploads de arquivos (`multipart/form-data`) na aplicação.
  */
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { Request } from 'express';
 
-/**
- * Garante que um diretório exista, criando-o de forma recursiva se necessário.
- * @param {string} dirPath - O caminho do diretório a ser verificado/criado.
- */
+// --- Constantes de Configuração ---
+const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
+const MAX_PDF_SIZE_BYTES = 5 * 1024 * 1024;  // 5MB
+
+// --- Funções Auxiliares de Configuração ---
+
 const ensureDirSync = (dirPath: string) => {
   if (!fs.existsSync(dirPath)) {
     fs.mkdirSync(dirPath, { recursive: true });
   }
 };
 
-/**
- * Função de fábrica para criar configurações de armazenamento em disco para o Multer.
- * @param {string} destination - A subpasta dentro de 'uploads' onde os arquivos serão salvos.
- * @param {string} filenamePrefix - O prefixo para o nome do arquivo.
- * @returns {multer.StorageEngine} A configuração de armazenamento em disco.
- */
 const createDiskStorage = (destination: string, filenamePrefix: string): multer.StorageEngine => {
   return multer.diskStorage({
     destination: (req, file, cb) => {
@@ -34,46 +32,50 @@ const createDiskStorage = (destination: string, filenamePrefix: string): multer.
       cb(null, uploadPath);
     },
     filename: (req, file, cb) => {
-      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-      cb(null, `${filenamePrefix}-${uniqueSuffix}${path.extname(file.originalname)}`);
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+      const extension = path.extname(file.originalname);
+      cb(null, `${filenamePrefix}-${uniqueSuffix}${extension}`);
     },
   });
 };
 
-/**
- * Filtro de arquivos para validar os tipos de arquivo permitidos no upload.
- */
+// Filtro de arquivos genérico que aceita imagens e PDFs.
 const fileFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
-  // Aceita apenas PDFs e os principais formatos de imagem.
-  if (
-    file.mimetype.startsWith('image/') ||
-    file.mimetype === 'application/pdf'
-  ) {
+  const allowed = file.mimetype.startsWith('image/') || file.mimetype === 'application/pdf';
+  if (allowed) {
     cb(null, true);
   } else {
     cb(new Error('Formato de arquivo não suportado. Apenas imagens e PDFs são permitidos.'));
   }
 };
 
-// --- Middlewares Exportados ---
+// Filtro de arquivos específico que aceita apenas PDFs.
+const pdfFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+    if (file.mimetype === 'application/pdf') {
+      cb(null, true);
+    } else {
+      cb(new Error('Formato de arquivo inválido. Apenas PDFs são aceitos.'));
+    }
+  };
 
-/**
- * Middleware para uploads que serão salvos em disco.
- */
+// --- Middlewares de Upload Exportados ---
+
 export const uploadProfile = multer({ storage: createDiskStorage('profile', 'user-profile') });
 export const uploadInventory = multer({ storage: createDiskStorage('inventory', 'inventory-item') });
 export const uploadDocument = multer({ storage: createDiskStorage('documents', 'property-document') });
-export const uploadPropertyPhoto = multer({ storage: createDiskStorage('property', 'property-photo') }); 
+export const uploadPropertyPhoto = multer({ storage: createDiskStorage('property', 'property-photo') });
 export const uploadInvoiceReceipt = multer({ storage: createDiskStorage('invoices', 'invoice-receipt'), fileFilter });
 
-/**
- * Middleware para uploads que serão processados em memória.
- * Ideal para manipulação de arquivos antes do salvamento, como no fluxo de OCR.
- */
+// Middleware para upload de PDF em memória, usado na validação de endereço.
+export const uploadPdfForValidation = multer({
+    storage: multer.memoryStorage(),
+    fileFilter: pdfFilter,
+    limits: { fileSize: MAX_PDF_SIZE_BYTES },
+});
+
+// Middleware genérico para uploads em memória (ex: OCR).
 export const upload = multer({
   storage: multer.memoryStorage(),
   fileFilter: fileFilter,
-  limits: {
-    fileSize: 10 * 1024 * 1024, // Limite de 10MB por arquivo
-  },
+  limits: { fileSize: MAX_FILE_SIZE_BYTES },
 });

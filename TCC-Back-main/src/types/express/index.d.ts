@@ -17,7 +17,12 @@ interface UserPayload {
 declare namespace Express {
   export interface Request {
     // Anexa os dados do usuário decodificados do JWT após a autenticação.
-    user?: UserPayload;
+    user?: {
+      id: number;
+      nomeCompleto?: string;
+      email?: string;
+      permissao?: string;
+    };
 
     // Anexa os papéis/níveis de acesso do usuário, se aplicável no seu sistema.
     // Esta propriedade será populada pelo middleware de autenticação.

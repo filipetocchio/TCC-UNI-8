@@ -1,5 +1,13 @@
 // Todos direitos autorais reservados pelo QOTA.
 
+///
+/// Schema do Banco de Dados para a plataforma QOTA.
+///
+/// Este arquivo define a estrutura completa do banco de dados da aplicação,
+/// incluindo todas as tabelas (models), tipos de dados enumerados (enums),
+/// e os relacionamentos entre eles. A estrutura é gerenciada utilizando o Prisma ORM.
+///
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -9,21 +17,27 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Enums
+// -----------------------------------------------------------------------------
+// --- ENUMS: Definições de tipos de dados com valores pré-definidos.
+// -----------------------------------------------------------------------------
+
+/// Status de um convite enviado para um novo cotista.
 enum StatusConvite {
   PENDENTE
   ACEITO
   EXPIRADO
 }
 
+/// Status de uma despesa ou do pagamento de um cotista.
 enum StatusPagamento {
   PENDENTE
   PARCIALMENTE_PAGO
   PAGO
   ATRASADO
-  CANCELADO 
+  CANCELADO
 }
 
+/// Estado de conservação de um item do inventário.
 enum EstadoConservacao {
   NOVO
   BOM
@@ -31,91 +45,131 @@ enum EstadoConservacao {
   DANIFICADO
 }
 
+/// Status de uma reserva no calendário da propriedade.
 enum StatusReserva {
-  CONFIRMADA
-  CONCLUIDA
-  CANCELADA
-  NO_SHOW 
+  CONFIRMADA // A reserva está ativa e aguardando o check-in.
+  CONCLUIDA  // O período da reserva já foi finalizado.
+  CANCELADA  // A reserva foi cancelada pelo cotista ou administrador.
+  NO_SHOW    // O cotista não compareceu na data do check-in.
 }
 
-// Modelos
+// -----------------------------------------------------------------------------
+// --- 1. MODELOS CENTRAIS (Core Models)
+// -----------------------------------------------------------------------------
+
+/// Representa um usuário (cotista) da plataforma.
 model User {
-  id                Int       @id @default(autoincrement())
-  email             String    @unique
-  password          String
-  refreshToken      String?   @unique
-  nomeCompleto      String
-  telefone          String?
-  cpf               String    @unique
-  dataCadastro      DateTime  @default(now())
-  dataConsentimento DateTime?
-  versaoTermos      String?
+  id                  Int       @id @default(autoincrement())
+  email               String    @unique
+  password            String
+  refreshToken        String?   @unique
+  nomeCompleto        String
+  telefone            String?
+  cpf                 String    @unique
+  dataCadastro        DateTime  @default(now())
+  dataConsentimento   DateTime? // Data de aceite dos termos de uso.
+  versaoTermos        String?   // Versão dos termos aceitos pelo usuário.
 
-  // Relacionamentos
+  // --- Relacionamentos
   userPhoto           UserPhoto?
-  propriedades        UsuariosPropriedades[]
-  convitesEnviados    Convite[]                @relation("ConvidadoPor")
+  propriedades        UsuariosPropriedades[] // Vínculos deste usuário com propriedades.
+  convitesEnviados    Convite[]              @relation("ConvidadoPor")
   pagamentos          PagamentoCotista[]
-  notificacoesLidas   Notificacao[]            @relation("NotificacoesLidas")
-  notificacoesGeradas Notificacao[]            @relation("AutorDaNotificacao")
-  despesasCriadas     Despesa[]                @relation("CriadoPor")
-  reservas            Reserva[]                
-  penalidades         Penalidade[]             
-  checklistsRealizados ChecklistInventario[] 
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-  excludedAt        DateTime?
+  notificacoesLidas   Notificacao[]          @relation("NotificacoesLidas")
+  notificacoesGeradas Notificacao[]          @relation("AutorDaNotificacao")
+  despesasCriadas     Despesa[]              @relation("CriadoPor")
+  reservas            Reserva[]
+  penalidades         Penalidade[]
+  checklistsRealizados ChecklistInventario[]
+
+  // --- Metadados de Auditoria
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  excludedAt          DateTime? // Para implementação de soft delete.
 }
 
-model UserPhoto {
-  id         Int      @id @default(autoincrement())
-  userId     Int      @unique
-  filename   String
-  url        String
-  uploadedAt DateTime @default(now())
-  user       User     @relation(fields: [userId], references: [id])
-}
-
+/// Representa uma propriedade compartilhada .
 model Propriedades {
-  id                      Int      @id @default(autoincrement())
-  nomePropriedade         String
-  tipo                    String
-  valorEstimado           Float?
-  
-  // Endereço
-  enderecoCep             String?
-  enderecoCidade          String?
-  enderecoBairro          String?
-  enderecoLogradouro      String?
-  enderecoNumero          String?
-  enderecoComplemento     String?
-  enderecoPontoReferencia String?
+  id                               Int      @id @default(autoincrement())
+  nomePropriedade                  String
+  tipo                             String
+  valorEstimado                    Float?
 
-  duracaoMinimaEstadia    Int      @default(1)
-  duracaoMaximaEstadia    Int      @default(7)
-  horarioCheckin          String   @default("15:00")
-  horarioCheckout         String   @default("11:00")
-  prazoCancelamentoReserva Int      @default(14) // Em dias
-  limiteFeriadosPorCotista    Int? // Opcional: Máximo de feriados por cotista por ano
-  limiteReservasAtivasPorCotista Int? // Opcional: Máximo de reservas futuras ativas por cotista
-  // Relacionamentos
-  usuarios     UsuariosPropriedades[]
-  fotos        FotosPropriedade[]
-  documentos   DocumentosPropriedade[]
-  inventario   ItemInventario[]
-  convites     Convite[]
-  despesas     Despesa[]
-  notificacoes Notificacao[]
-  reservas     Reserva[]         
-  penalidades  Penalidade[]      
-  datasEspeciais DataEspecial[]  
+  // --- Endereço
+  enderecoCep                      String?
+  enderecoCidade                   String?
+  enderecoBairro                   String?
+  enderecoLogradouro               String?
+  enderecoNumero                   String?
+  enderecoComplemento              String?
+  enderecoPontoReferencia          String?
+
+  // --- Regras de Negócio
+  duracaoMinimaEstadia             Int      @default(1)
+  duracaoMaximaEstadia             Int      @default(7)
+  horarioCheckin                   String   @default("15:00")
+  horarioCheckout                  String   @default("11:00")
+  prazoCancelamentoReserva         Int      @default(14)    // Em dias.
+  limiteFeriadosPorCotista         Int?                     // Opcional: Máximo de feriados por cotista por ano.
+  limiteReservasAtivasPorCotista   Int?                     // Opcional: Máximo de reservas futuras ativas por cotista.
+  janelaAgendamentoDias            Int      @default(180)
+  totalFracoes                     Int      @default(52)
+  diariasPorFracao                 Float    @default(0.0)
+
+  // --- Relacionamentos
+  usuarios                         UsuariosPropriedades[]
+  fotos                            FotoPropriedade[]
+  documentos                       DocumentoPropriedade[]
+  inventario                       ItemInventario[]
+  convites                         Convite[]
+  despesas                         Despesa[]
+  notificacoes                     Notificacao[]
+  reservas                         Reserva[]
+  penalidades                      Penalidade[]
+  datasEspeciais                   DataEspecial[]
+
+  // --- Metadados de Auditoria
+  dataCadastro                     DateTime @default(now())
+  createdAt                        DateTime @default(now())
+  updatedAt                        DateTime @updatedAt
+  excludedAt                       DateTime?
+
   
-  dataCadastro DateTime @default(now())
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  excludedAt   DateTime?
 }
 
+// -----------------------------------------------------------------------------
+// --- 2. MODELOS DE RELACIONAMENTO (Join/Pivot Tables)
+// -----------------------------------------------------------------------------
+
+/// Tabela pivot para o relacionamento N:N entre Usuários e Propriedades.
+/// Armazena informações específicas do vínculo, como permissão e cota.
+model UsuariosPropriedades {
+  id              Int        @id @default(autoincrement())
+  idUsuario       Int
+  idPropriedade   Int
+  permissao       String     // Ex: "MASTER_OWNER", "COMMON_OWNER"
+  dataVinculo     DateTime   @default(now())
+  numeroDeFracoes Int        @default(0) // Um valor '0' indica um administrador sem direito a cota.
+  saldoDiariasAtual Float    @default(0.0)
+
+  // --- Relacionamentos
+  usuario         User         @relation(fields: [idUsuario], references: [id])
+  propriedade     Propriedades  @relation(fields: [idPropriedade], references: [id])
+  
+  // --- Metadados de Auditoria
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  excludedAt      DateTime?
+
+  @@unique([idUsuario, idPropriedade]) // Garante que um usuário só pode ser associado a uma propriedade uma vez.
+}
+
+
+// -----------------------------------------------------------------------------
+// --- 3. MODELOS FUNCIONAIS (Reservas, Finanças, Inventário)
+// -----------------------------------------------------------------------------
+
+/// Representa uma reserva de uso de uma propriedade por um cotista.
 model Reserva {
   id              Int           @id @default(autoincrement())
   idPropriedade   Int
@@ -124,139 +178,187 @@ model Reserva {
   dataFim         DateTime
   numeroHospedes  Int
   status          StatusReserva @default(CONFIRMADA)
-  
-  propriedade     Propriedades @relation(fields: [idPropriedade], references: [id])
-  usuario         User         @relation(fields: [idUsuario], references: [id])
-  checklist       ChecklistInventario[] 
 
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+  // --- Relacionamentos
+  propriedade     Propriedades   @relation(fields: [idPropriedade], references: [id])
+  usuario         User          @relation(fields: [idUsuario], references: [id])
+  checklist       ChecklistInventario[]
+
+  // --- Metadados de Auditoria
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 }
 
+/// Registra uma despesa (fixa ou variável) associada a uma propriedade.
+model Despesa {
+  id               Int             @id @default(autoincrement())
+  idPropriedade    Int
+  criadoPorId      Int
+  descricao        String
+  valor            Float
+  dataVencimento   DateTime
+  categoria        String
+  observacao       String?
+  urlComprovante   String?
+  status           StatusPagamento @default(PENDENTE)
+
+  // --- Campos para Recorrência
+  recorrenciaPaiId Int?
+  recorrente       Boolean         @default(false)
+  frequencia       String?         // Ex: 'DIARIO', 'SEMANAL', 'MENSAL', 'ANUAL'
+  diaRecorrencia   Int?            // Dia do mês para recorrência mensal.
+
+  // --- Campos para Multa e Juros (opcionais)
+  multaAtraso      Float?          // Valor percentual da multa (ex: 2 para 2%).
+  jurosAtraso      Float?          // Valor percentual dos juros ao mês (ex: 1 para 1%).
+
+  // --- Relacionamentos
+  propriedade      Propriedades     @relation(fields: [idPropriedade], references: [id])
+  criadoPor        User            @relation("CriadoPor", fields: [criadoPorId], references: [id])
+  recorrenciaPai   Despesa?        @relation("Recorrencia", fields: [recorrenciaPaiId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  despesasFilhas   Despesa[]       @relation("Recorrencia")
+  pagamentos       PagamentoCotista[]
+
+  // --- Metadados de Auditoria
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+}
+
+/// Registra o pagamento individual de um cotista referente a uma despesa rateada.
+model PagamentoCotista {
+  id              Int        @id @default(autoincrement())
+  idDespesa       Int
+  idCotista       Int
+  valorDevido     Float
+  pago            Boolean    @default(false)
+  dataPagamento   DateTime?
+
+  // --- Relacionamentos
+  despesa         Despesa    @relation(fields: [idDespesa], references: [id])
+  cotista         User       @relation(fields: [idCotista], references: [id])
+
+  @@unique([idDespesa, idCotista]) // Um cotista só pode ter um registro de pagamento por despesa.
+}
+
+
+/// Armazena um item físico pertencente ao inventário de uma propriedade.
+model ItemInventario {
+  id                   Int               @id @default(autoincrement())
+  idPropriedade        Int
+  nome                 String
+  quantidade           Int               @default(1)
+  estadoConservacao    EstadoConservacao @default(BOM)
+  categoria            String?
+  dataAquisicao        DateTime?
+  descricao            String?
+  valorEstimado        Float?
+  codigoBarras         String?           @unique
+
+  // --- Relacionamentos
+  propriedade          Propriedades       @relation(fields: [idPropriedade], references: [id])
+  fotos                FotoInventario[]
+  checklists           ItemChecklist[]
+
+  // --- Metadados de Auditoria
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+  excludedAt           DateTime?
+}
+
+/// Representa a realização de um checklist (check-in ou check-out) de uma reserva.
 model ChecklistInventario {
-  id          Int      @id @default(autoincrement())
+  id          Int       @id @default(autoincrement())
   idReserva   Int
-  idUsuario   Int      // Quem realizou o checklist
-  tipo        String   // "CHECKIN" ou "CHECKOUT"
-  data        DateTime @default(now())
+  idUsuario   Int       // Usuário que realizou o checklist.
+  tipo        String    // "CHECKIN" ou "CHECKOUT"
+  data        DateTime  @default(now())
   observacoes String?
 
-  reserva     Reserva @relation(fields: [idReserva], references: [id])
-  usuario     User    @relation(fields: [idUsuario], references: [id])
+  // --- Relacionamentos
+  reserva     Reserva   @relation(fields: [idReserva], references: [id])
+  usuario     User      @relation(fields: [idUsuario], references: [id])
   itens       ItemChecklist[]
 }
 
+/// Registra o estado de um item específico durante um checklist.
 model ItemChecklist {
-  id                    Int      @id @default(autoincrement())
-  idChecklist           Int
-  idItemInventario      Int
-  estadoConservacao     EstadoConservacao // Estado do item no momento do checklist
-  observacao            String?
-  fotoUrl               String?           // URL da foto, caso um problema seja reportado
+  id                 Int               @id @default(autoincrement())
+  idChecklist        Int
+  idItemInventario   Int
+  estadoConservacao  EstadoConservacao // Estado do item no momento da verificação.
+  observacao         String?
+  fotoUrl            String?           // URL da foto, caso um problema seja reportado.
 
-  checklist       ChecklistInventario @relation(fields: [idChecklist], references: [id])
-  itemInventario  ItemInventario      @relation(fields: [idItemInventario], references: [id])
-
+  // --- Relacionamentos
+  checklist          ChecklistInventario @relation(fields: [idChecklist], references: [id])
+  itemInventario     ItemInventario      @relation(fields: [idItemInventario], references: [id])
 }
 
-model Penalidade {
-  id            Int      @id @default(autoincrement())
+// -----------------------------------------------------------------------------
+// --- 4. MODELOS DE SUPORTE (Auxiliares e de Metadados)
+// -----------------------------------------------------------------------------
+
+/// Armazena a foto de perfil de um usuário.
+model UserPhoto {
+  id         Int      @id @default(autoincrement())
+  userId     Int      @unique
+  filename   String
+  url        String
+  uploadedAt DateTime @default(now())
+
+  // --- Relacionamentos
+  user       User     @relation(fields: [userId], references: [id])
+}
+
+/// Representa uma foto associada a uma propriedade.
+model FotoPropriedade {
+  id            Int         @id @default(autoincrement())
   idPropriedade Int
-  idUsuario     Int
-  motivo        String   // Ex: "Cancelamento fora do prazo", "No-show"
-  dataFim       DateTime // Data até quando a penalidade (ex: bloqueio) é válida
+  documento     String      // URL ou path do arquivo de imagem.
+  dataUpload    DateTime    @default(now())
 
-  propriedade Propriedades @relation(fields: [idPropriedade], references: [id])
-  usuario     User         @relation(fields: [idUsuario], references: [id])
-  createdAt   DateTime     @default(now())
+  // --- Relacionamentos
+  propriedade   Propriedades @relation(fields: [idPropriedade], references: [id])
+
+  // --- Metadados de Auditoria
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  excludedAt    DateTime?
 }
 
-model DataEspecial {
-  id            Int      @id @default(autoincrement())
-  idPropriedade Int
-  data          DateTime
-  descricao     String   // Ex: "Feriado de Natal", "Alta Temporada"
-  tipo          String   // "FERIADO_NACIONAL", "FERIADO_LOCAL", "ALTA_DEMANDA"
-
-  propriedade Propriedades @relation(fields: [idPropriedade], references: [id])
-  createdAt   DateTime     @default(now())
-}
-
-model UsuariosPropriedades {
-  id              Int      @id @default(autoincrement())
-  idUsuario       Int
+/// Representa um documento legal ou administrativo associado a uma propriedade.
+model DocumentoPropriedade {
+  id              Int         @id @default(autoincrement())
   idPropriedade   Int
-  permissao       String
-  porcentagemCota Float    @default(0)
-  dataVinculo     DateTime @default(now())
-  
-  usuario     User         @relation(fields: [idUsuario], references: [id])
-  propriedade Propriedades @relation(fields: [idPropriedade], references: [id])
-  
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  excludedAt  DateTime?
+  tipoDocumento   String      // Ex: "Escritura", "Contrato Social"
+  documento       String      // URL ou path do arquivo.
+  dataUpload      DateTime    @default(now())
 
-  @@unique([idUsuario, idPropriedade])
+  // --- Relacionamentos
+  propriedade     Propriedades @relation(fields: [idPropriedade], references: [id])
+
+  // --- Metadados de Auditoria
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  excludedAt      DateTime?
 }
 
-model FotosPropriedade {
-  id            Int       @id @default(autoincrement())
-  idPropriedade Int
-  documento     String
-  dataUpload    DateTime  @default(now())
-
-  propriedade   Propriedades @relation(fields: [idPropriedade], references: [id])
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  excludedAt    DateTime?
-}
-
-model DocumentosPropriedade {
-  id            Int       @id @default(autoincrement())
-  idPropriedade Int
-  tipoDocumento String
-  documento     String
-  dataUpload    DateTime  @default(now())
-
-  propriedade   Propriedades @relation(fields: [idPropriedade], references: [id])
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  excludedAt    DateTime?
-}
-
-model ItemInventario {
-  id                 Int      @id @default(autoincrement())
-  idPropriedade      Int
-  nome               String
-  quantidade         Int      @default(1)
-  estadoConservacao  EstadoConservacao @default(BOM)
-  categoria          String?
-  dataAquisicao      DateTime?
-  descricao          String?
-  valorEstimado      Float?
-  codigoBarras       String?  @unique
-
-  propriedade        Propriedades     @relation(fields: [idPropriedade], references: [id])
-  fotos              FotoInventario[]
-  checklists         ItemChecklist[]
-
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-  excludedAt         DateTime?
-}
-
+/// Armazena uma foto de um item do inventário.
 model FotoInventario {
-  id               Int      @id @default(autoincrement())
+  id               Int            @id @default(autoincrement())
   idItemInventario Int
   filename         String
   url              String
-
-  itemInventario   ItemInventario @relation(fields: [idItemInventario], references: [id])
   uploadedAt       DateTime       @default(now())
+
+  // --- Relacionamentos
+  itemInventario   ItemInventario @relation(fields: [idItemInventario], references: [id])
+
+  // --- Metadados de Auditoria
   excludedAt       DateTime?
 }
 
+/// Gerencia os convites para novos cotistas se juntarem a uma propriedade.
 model Convite {
   id                Int           @id @default(autoincrement())
   token             String        @unique
@@ -264,75 +366,64 @@ model Convite {
   idPropriedade     Int
   idConvidadoPor    Int
   permissao         String
-  porcentagemCota   Float         @default(0)
   usuarioJaExiste   Boolean       @default(false)
   dataExpiracao     DateTime
   status            StatusConvite @default(PENDENTE)
   aceitoEm          DateTime?
+  numeroDeFracoes   Int           @default(0)
 
-  propriedade     Propriedades @relation(fields: [idPropriedade], references: [id])
-  convidadoPor    User         @relation("ConvidadoPor", fields: [idConvidadoPor], references: [id])
+  // --- Relacionamentos
+  propriedade       Propriedades   @relation(fields: [idPropriedade], references: [id])
+  convidadoPor      User          @relation("ConvidadoPor", fields: [idConvidadoPor], references: [id])
 
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+  // --- Metadados de Auditoria
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
 }
 
-model Despesa {
-  id              Int      @id @default(autoincrement())
-  idPropriedade   Int
-  criadoPorId     Int
-  descricao       String
-  valor           Float
-  dataVencimento  DateTime
-  categoria       String
-  observacao      String?
-  urlComprovante  String?
-  status          StatusPagamento @default(PENDENTE)
-  recorrenciaPaiId Int?
-  // Campos para recorrência
-  recorrente      Boolean  @default(false)
-  frequencia      String?  // Ex: 'DIARIO', 'SEMANAL', 'MENSAL', 'ANUAL'
-  diaRecorrencia  Int?     // Dia do mês para recorrência mensal
-
-  // Campos para multa e juros (opcionais)
-  multaAtraso     Float?   // Valor percentual da multa (ex: 2 para 2%)
-  jurosAtraso     Float?   // Valor percentual dos juros ao mês (ex: 1 para 1%)
-
-  // Relacionamentos
-  
-  propriedade     Propriedades       @relation(fields: [idPropriedade], references: [id])
-  recorrenciaPai   Despesa?  @relation("Recorrencia", fields: [recorrenciaPaiId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  despesasFilhas   Despesa[] @relation("Recorrencia")
-  pagamentos      PagamentoCotista[]
-  criadoPor       User           @relation("CriadoPor", fields: [criadoPorId], references: [id])
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-}
-
-model PagamentoCotista {
-  id            Int      @id @default(autoincrement())
-  idDespesa     Int
-  idCotista     Int
-  valorDevido   Float
-  pago          Boolean  @default(false)
-  dataPagamento DateTime?
-
-  despesa Despesa @relation(fields: [idDespesa], references: [id])
-  cotista User    @relation(fields: [idCotista], references: [id])
-
-  @@unique([idDespesa, idCotista])
-}
-
+/// Representa uma notificação no sistema para os usuários de uma propriedade.
 model Notificacao {
-  id            Int      @id @default(autoincrement())
+  id            Int         @id @default(autoincrement())
   idPropriedade Int
-  idAutor       Int      
-  mensagem      String   
-  
-  lidaPor       User[]   @relation("NotificacoesLidas") 
+  idAutor       Int
+  mensagem      String
 
+  // --- Relacionamentos
+  lidaPor       User[]      @relation("NotificacoesLidas")
   propriedade   Propriedades @relation(fields: [idPropriedade], references: [id])
-  autor         User         @relation(fields: [idAutor], references: [id], name: "AutorDaNotificacao")
+  autor         User        @relation("AutorDaNotificacao", fields: [idAutor], references: [id])
 
-  createdAt     DateTime @default(now())
+  // --- Metadados de Auditoria
+  createdAt     DateTime    @default(now())
+}
+
+/// Aplica uma penalidade a um usuário, como bloqueio de novas reservas.
+model Penalidade {
+  id            Int        @id @default(autoincrement())
+  idPropriedade Int
+  idUsuario     Int
+  motivo        String     // Ex: "Cancelamento fora do prazo", "No-show".
+  dataFim       DateTime   // Data até quando a penalidade é válida.
+
+  // --- Relacionamentos
+  propriedade   Propriedades @relation(fields: [idPropriedade], references: [id])
+  usuario       User        @relation(fields: [idUsuario], references: [id])
+
+  // --- Metadados de Auditoria
+  createdAt     DateTime    @default(now())
+}
+
+/// Marca datas específicas no calendário que podem ter regras especiais (feriados, alta temporada).
+model DataEspecial {
+  id            Int         @id @default(autoincrement())
+  idPropriedade Int
+  data          DateTime
+  descricao     String      // Ex: "Feriado de Natal", "Alta Temporada"
+  tipo          String      // Ex: "FERIADO_NACIONAL", "FERIADO_LOCAL", "ALTA_DEMANDA"
+
+  // --- Relacionamentos
+  propriedade   Propriedades @relation(fields: [idPropriedade], references: [id])
+
+  // --- Metadados de Auditoria
+  createdAt     DateTime    @default(now())
 }

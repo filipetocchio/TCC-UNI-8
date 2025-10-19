@@ -1,51 +1,51 @@
-/**
- * @file propertyDocuments.route.ts
- * @description Define as rotas da API para o gerenciamento de documentos de propriedades,
- * garantindo que todas as rotas sejam protegidas e utilizem os middlewares corretos.
- */
-
 // Todos direitos autorais reservados pelo QOTA.
 
+/**
+ * Definição das Rotas de Documentos de Propriedades
+ *
+ * Descrição:
+ * Este arquivo centraliza a definição de todas as rotas da API relacionadas ao
+ * gerenciamento de documentos de propriedades. Cada rota é associada ao seu
+ * respectivo controlador e protegida com os middlewares de segurança apropriados
+ * (autenticação, autorização e processamento de uploads).
+ */
 import express from 'express';
 import { protect } from '../middleware/authMiddleware';
+import { verifyRoles } from '../middleware/verifyRoles';
+import { ROLES_LIST } from '../config/rolesList';
 import { uploadDocument } from '../middleware/upload';
 
-// Importação dos controllers relevantes para esta rota
+// Importação dos controladores
 import { uploadPropertyDocument } from '../controllers/PropertyDocuments/upload.PropertyDocuments.controller';
 import { getPropertyDocuments } from '../controllers/PropertyDocuments/get.PropertyDocuments.controller';
 import { getPropertyDocumentsById } from '../controllers/PropertyDocuments/getById.PropertyDocuments.controller';
 import { deletePropertyDocumentsById } from '../controllers/PropertyDocuments/deleteById.PropertyDocuments.controller';
 
+// Criação do roteador para o escopo de documentos de propriedades.
 export const propertyDocuments = express.Router();
 
-/**
- * @route   POST /api/v1/propertyDocuments/upload
- * @desc    Realiza o upload de um documento para uma propriedade.
- * A requisição passa primeiro pelo middleware 'protect' para garantir a autenticação,
- * depois pelo 'uploadDocument' para processar o arquivo enviado no campo 'documento',
- * e finalmente chega ao controller.
- * @access  Privado
- */
-propertyDocuments.post('/upload', protect, uploadDocument.single('documento'), uploadPropertyDocument);
+// Rota para realizar o upload de um novo documento para uma propriedade.
+// Acesso: Privado (requer autenticação). A autorização é tratada no controlador.
+propertyDocuments.post(
+  '/upload',
+  protect,
+  uploadDocument.single('documento'),
+  uploadPropertyDocument
+);
 
-/**
- * @route   GET /api/v1/propertyDocuments
- * @desc    Lista todos os documentos do sistema (rota administrativa).
- * @access  Privado
- */
-propertyDocuments.get('/', protect, getPropertyDocuments);
+// Rota para listar TODOS os documentos do sistema.
+// Acesso: Restrito a Administradores do Sistema.
+propertyDocuments.get(
+  '/',
+  protect,
+  verifyRoles(ROLES_LIST.Admin),
+  getPropertyDocuments
+);
 
-/**
- * @route   GET /api/v1/propertyDocuments/:id
- * @desc    Busca um documento específico pelo seu ID.
- * @access  Privado
- */
+// Rota para buscar um documento específico pelo seu ID.
+// Acesso: Privado (requer autenticação). A autorização (ser membro) é feita no controlador.
 propertyDocuments.get('/:id', protect, getPropertyDocumentsById);
 
-/**
- * @route   DELETE /api/v1/propertyDocuments/:id
- * @desc    Deleta (soft delete) um documento específico pelo seu ID.
- * @access  Privado (requer permissão de 'proprietario_master')
- */
+// Rota para deletar um documento específico pelo seu ID.
+// Acesso: Privado (requer autenticação). A autorização (ser master) é feita no controlador.
 propertyDocuments.delete('/:id', protect, deletePropertyDocumentsById);
-

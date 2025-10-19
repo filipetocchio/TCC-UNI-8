@@ -1,8 +1,22 @@
 // Todos direitos autorais reservados pelo QOTA.
 
+/**
+ * Definição das Rotas do Módulo Financeiro
+ *
+ * Descrição:
+ * Este arquivo centraliza a definição de todas as rotas da API relacionadas ao
+ * módulo financeiro. Isso inclui o CRUD completo de despesas, atualização de
+ * status de pagamentos, geração de relatórios, resumos financeiros e o
+ * processamento de faturas via OCR.
+ *
+ * Todas as rotas são protegidas e a autorização granular (verificar se o usuário
+ * pertence à propriedade) é tratada dentro de cada controlador.
+ */
 import express from 'express';
 import { protect } from '../middleware/authMiddleware';
 import { upload, uploadInvoiceReceipt } from '../middleware/upload';
+
+// Importação dos controladores do módulo financeiro
 import { createExpense } from '../controllers/Financial/create.Expense.controller';
 import { getExpensesByProperty } from '../controllers/Financial/get.Expenses.controller';
 import { getExpenseById } from '../controllers/Financial/get.ExpenseById.controller';
@@ -10,77 +24,56 @@ import { updateExpense } from '../controllers/Financial/update.Expense.controlle
 import { cancelExpense } from '../controllers/Financial/cancel.Expense.controller';
 import { updatePaymentStatus } from '../controllers/Financial/update.PaymentStatus.controller';
 import { generateFinancialReport } from '../controllers/Financial/report.Financial.controller';
-import { getFinancialSummary } from '../controllers/Financial/summary.Financial.controller'; 
+import { getFinancialSummary } from '../controllers/Financial/summary.Financial.controller';
 import { processInvoiceWithOCR } from '../controllers/Financial/ocr.ProcessInvoice.controller';
 
+// Criação do roteador para o escopo financeiro.
 export const financial = express.Router();
 
-/**
- * @route   POST /api/v1/financial/expense/manual
- * @desc    Cria uma nova despesa a partir de dados manuais.
- * @access  Privado
- */
-financial.post('/expense/manual', protect, uploadInvoiceReceipt.array('comprovanteFile', 10), createExpense);
 
-/**
- * @route   POST /api/v1/financial/ocr-process
- * @desc    Processa um arquivo PDF com o serviço de OCR e retorna os dados extraídos.
- * @access  Privado
- */
-// ADICIONADO: Nova rota para o fluxo de OCR desacoplado.
+// --- Rotas de Processamento de Documentos (OCR) ---
+
+// Rota para processar um arquivo de fatura com o serviço de OCR.
+// Acesso: Privado.
 financial.post('/ocr-process', protect, upload.single('invoiceFile'), processInvoiceWithOCR);
 
-/**
- * @route   POST /api/v1/financial/expense/upload-ocr
- * @desc    (Obsoleto) Cria uma nova despesa a partir de um arquivo PDF.
- * @access  Privado
- */
 
-/**
- * @route   GET /api/v1/financial/property/:propertyId/summary
- * @desc    Busca um resumo financeiro agregado para o dashboard.
- * @access  Privado
- */
-financial.get('/property/:propertyId/summary', protect, getFinancialSummary);
+// --- Rotas de Despesas (Expenses) ---
 
-/**
- * @route   GET /api/v1/financial/property/:propertyId
- * @desc    Lista todas as despesas de uma propriedade.
- * @access  Privado
- */
-financial.get('/property/:propertyId', protect, getExpensesByProperty);
+// Rota para criar uma nova despesa a partir de dados manuais.
+// Acesso: Privado.
+financial.post('/expense/manual', protect, uploadInvoiceReceipt.array('comprovanteFile', 10), createExpense);
 
-/**
- * @route   GET /api/v1/financial/expense/:expenseId
- * @desc    Busca os detalhes de uma despesa específica.
- * @access  Privado
- */
+// Rota para buscar os detalhes de uma despesa específica.
+// Acesso: Privado.
 financial.get('/expense/:expenseId', protect, getExpenseById);
 
-/**
- * @route   PUT /api/v1/financial/expense/:expenseId
- * @desc    Atualiza uma despesa existente.
- * @access  Privado
- */
+// Rota para atualizar uma despesa existente.
+// Acesso: Privado.
 financial.put('/expense/:expenseId', protect, uploadInvoiceReceipt.array('comprovanteFile', 10), updateExpense);
 
-/**
- * @route   DELETE /api/v1/financial/expense/:expenseId
- * @desc    Cancela uma despesa (realiza um soft-delete).
- * @access  Privado
- */
+// Rota para cancelar uma despesa (realiza um soft-delete).
+// Acesso: Privado.
 financial.delete('/expense/:expenseId', protect, cancelExpense);
 
-/**
- * @route   PUT /api/v1/financial/payment/:paymentId
- * @desc    Atualiza o status de um pagamento individual (pago/pendente).
- * @access  Privado
- */
+
+// --- Rotas de Pagamentos (Payments) ---
+
+// Rota para atualizar o status de um pagamento individual (pago/pendente).
+// Acesso: Privado.
 financial.put('/payment/:paymentId', protect, updatePaymentStatus);
 
-/**
- * @route   GET /api/v1/financial/property/:propertyId/report
- * @desc    Gera e retorna um relatório financeiro em PDF.
- * @access  Privado
- */
+
+// --- Rotas Agregadas por Propriedade ---
+
+// Rota para buscar um resumo financeiro para o dashboard de uma propriedade.
+// Acesso: Privado.
+financial.get('/property/:propertyId/summary', protect, getFinancialSummary);
+
+// Rota para gerar e retornar um relatório financeiro em PDF de uma propriedade.
+// Acesso: Privado.
 financial.get('/property/:propertyId/report', protect, generateFinancialReport);
+
+// Rota para listar todas as despesas de uma propriedade (deve ser a última rota genérica).
+// Acesso: Privado.
+financial.get('/property/:propertyId', protect, getExpensesByProperty);
