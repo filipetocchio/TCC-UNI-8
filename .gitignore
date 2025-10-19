@@ -33,17 +33,8 @@ dist-ssr/
 .DS_Store
 Thumbs.db
 
-# ------------------------------------------------------------------
-# Arquivos de desenvolvimento QOTA a serem ignorados (Adicionado Agora)
-# ------------------------------------------------------------------
-
-
-# Ignora pastas específicas de componentes do Módulo Calendário no frontend
-TCC-Front_Web/src/components/calendar/
 
 # Ignora arquivos específicos de rotas e páginas que você está modificando
-TCC-Front_Web/src/pages/CalendarPage.jsx
-TCC-Front_Web/src/pages/ReservationDetailsPage.jsx
 TCC-Front_Web/src/components/calendar/ChecklistForm.jsx
 TCC-Front_Web/src/components/calendar/ChecklistHistory.jsx
 TCC-Front_Web/src/components/calendar/ReservationModal.jsx
