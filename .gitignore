@@ -42,6 +42,4 @@ TCC-Front_Web/src/components/calendar/RulesHelpModal.jsx
 TCC-Front_Web/src/components/calendar/SchedulingRules.jsx
 TCC-Front_Web/src/components/financial/CurrencyInputField.jsx
 TCC-Front_Web/src/components/financial/ExpenseDetailsModal.jsx
-TCC-Front_Web/src/components/financial/ExpenseTable.jsx
-TCC-Front_Web/src/components/financial/FinancialStats.jsx
 TCC-Back-main/uploads/
