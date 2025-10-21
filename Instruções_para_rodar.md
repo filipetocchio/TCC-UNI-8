@@ -84,15 +84,16 @@ cd qota-ocr-service
 
 # Crie e ative um ambiente virtual
 python -m venv venv
+
 # No Windows:
 .\venv\Scripts\activate
 
 # No Linux/macOS:
 source venv/bin/activate
 
-# Crie o arquivo requirements.txt com o conteúdo abaixo
-# (Flask, pytesseract, opencv-python-headless, Pillow, pdf2image, PyMuPDF, thefuzz, python-Levenshtein)
+
 python -m pip install --upgrade pip
+
 # Instale as dependências
 pip install -r requirements.txt
 

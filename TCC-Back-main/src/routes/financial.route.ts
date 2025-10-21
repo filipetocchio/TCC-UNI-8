@@ -26,6 +26,7 @@ import { updatePaymentStatus } from '../controllers/Financial/update.PaymentStat
 import { generateFinancialReport } from '../controllers/Financial/report.Financial.controller';
 import { getFinancialSummary } from '../controllers/Financial/summary.Financial.controller';
 import { processInvoiceWithOCR } from '../controllers/Financial/ocr.ProcessInvoice.controller';
+import { markAllPaymentsAsPaid } from '../controllers/Financial/update.AllPaymentsAsPaid.controller';
 
 // Criação do roteador para o escopo financeiro.
 export const financial = express.Router();
@@ -51,6 +52,10 @@ financial.get('/expense/:expenseId', protect, getExpenseById);
 // Rota para atualizar uma despesa existente.
 // Acesso: Privado.
 financial.put('/expense/:expenseId', protect, uploadInvoiceReceipt.array('comprovanteFile', 10), updateExpense);
+
+// Rota para marcar todos os pagamentos de uma despesa como pagos (Ação em Massa)
+// Acesso: Privado.
+financial.put('/expense/:expenseId/mark-all-paid', protect, markAllPaymentsAsPaid);
 
 // Rota para cancelar uma despesa (realiza um soft-delete).
 // Acesso: Privado.
