@@ -1,6 +1,0 @@
-{
-  "watch": ["src", "routes", "middleware", "controllers", "interfaces"],
-  "ext": ".ts,.js",
-  "ignore": ["node_modules", "dist"],
-  "exec": "npx ts-node ./src/server.ts"
-}
