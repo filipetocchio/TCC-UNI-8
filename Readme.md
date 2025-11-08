@@ -4,7 +4,7 @@
 
 Este repositório serve como o **hub central** do projeto QOTA, um Trabalho de Conclusão de Curso em Engenharia de Software.
 
-Para uma melhor organização, profissionalismo e para seguir as práticas de arquitetura de microsserviços, o projeto foi dividido em três repositórios independentes. O código-fonte de cada aplicação reside em seu próprio repositório, com seu próprio histórico de commits e pipeline de CI/CD.
+Para uma melhor organização, profissionalismo e para seguir as práticas de arquitetura, o projeto foi dividido em três repositórios independentes. O código-fonte de cada aplicação reside em seu próprio repositório, com seu próprio histórico de commits e pipeline de CI/CD.
 
 ## 🚀 Repositórios do Projeto
 
