@@ -20,6 +20,11 @@ O `TCC-Back-main` é o núcleo do sistema. É um monólito modular construído e
 
 **➡️ [Acessar o Repositório do Back-end](https://github.com/filipetocchio/TCC-Back-main)**
 
+```bash
+git clone https://github.com/filipetocchio/TCC-Back-main
+```
+
+---
 ---
 
 ### 2. Front-end (Aplicação Web)
@@ -30,6 +35,9 @@ O `TCC-Front_Web` é a interface do usuário (UI) da plataforma. É uma **Single
 
 **➡️ [Acessar o Repositório do Front-end](https://github.com/filipetocchio/TCC-Front_Web)**
 
+```bash
+git clone https://github.com/filipetocchio/TCC-Front_Web
+```
 ---
 
 ### 3. Microsserviço de OCR (IA)
@@ -39,6 +47,10 @@ O `TCC-Front_Web` é a interface do usuário (UI) da plataforma. É uma **Single
 O `Qota-OCR-Service` é um microsserviço especializado, construído em **Python e Flask**. Sua única responsabilidade é processar documentos (PDFs), utilizando **Tesseract, OpenCV e PyMuPDF** para extrair dados (OCR) e **spaCy** para análise (NLP), validando comprovantes de endereço e faturas financeiras.
 
 **➡️ [Acessar o Repositório do Serviço de OCR](https://github.com/filipetocchio/Qota-OCR-Service)**
+
+```bash
+git clone https://github.com/filipetocchio/Qota-OCR-Service
+```
 
 ---
 
